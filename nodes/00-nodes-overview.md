@@ -2,7 +2,7 @@
 
 > **Author:** Shrinivas Ramaprasad  
 > **Last updated:** April 2026  
-> **Source:** [n8n Docs](https://docs.n8n.io/integrations/)
+> **Source:** n8n Official Docs + N8N_All_Nodes.xlsx (819 nodes verified)
 
 ---
 
@@ -17,16 +17,18 @@ Nodes connect via **edges/connectors** to form a directed workflow graph. Data f
 
 ---
 
-## Node Type Categories
+## Node Type Summary (from verified Excel dataset)
 
-| Type | Purpose | Self-starting? |
-|------|---------|----------------|
-| **Trigger** | Start a workflow in response to an event | ✅ Yes |
-| **Core** | Built-in logic, transformation, HTTP, flow control | ❌ No |
-| **App / Action** | Interact with 300+ external services | ❌ No |
-| **AI / Cluster** | Multi-node AI agent pipelines (LLMs, RAG, tools) | ❌ No |
-| **Community** | Third-party nodes from npm (verified or unverified) | ❌ No |
-| **Custom** | Nodes you build yourself in TypeScript | ❌ No |
+| Type | Count | Purpose | Self-starting? |
+|------|-------|---------|----------------|
+| **Core Nodes** | 67 | Built-in logic, transformation, HTTP, flow control | Triggers: ✅ / Actions: ❌ |
+| **Actions** | 270 | Interact with 270+ external services | ❌ No |
+| **Triggers** | 90 | Start workflows from external events | ✅ Yes |
+| **Root Nodes (AI)** | 21 | AI agent pipelines, chains, vector stores | ❌ No |
+| **Sub-nodes (AI)** | 63 | LLMs, memory, tools, embeddings, parsers | ❌ No (attach to Root) |
+| **Credentials** | 308 | Authentication configs for all integrations | — |
+| **Community** | Growing | Third-party npm packages | Varies |
+| **Custom** | Build your own | TypeScript nodes you develop | Varies |
 
 ---
 
@@ -57,7 +59,7 @@ After your trigger node is added, the panel groups nodes into:
 | Category | Contents |
 |----------|----------|
 | **Advanced AI** | LLM chains, AI agents, vector stores, embeddings |
-| **Actions in an App** | All 300+ service integrations |
+| **Actions in an App** | All 270+ service integrations |
 | **Data transformation** | Edit Fields, Code, Merge, Sort, Filter, Aggregate |
 | **Flow** | If, Switch, Loop, Wait, Error Trigger |
 | **Core** | HTTP Request, Webhook, Schedule, Email, etc. |
@@ -65,225 +67,394 @@ After your trigger node is added, the panel groups nodes into:
 
 ---
 
-## Master Node Index
+## Core Nodes — Complete List (67 nodes)
 
-### Trigger Nodes
+### Trigger Nodes (Core)
 
-| Node | Trigger Event | Primary Use Case |
-|------|--------------|------------------|
-| **Manual Trigger** | Button click in UI | Testing, one-off runs, demos |
-| **Schedule Trigger** | Cron / interval | Daily reports, regular data sync |
-| **Webhook** | Incoming HTTP POST/GET/etc. | Real-time integrations, external app events |
-| **Email Trigger (IMAP)** | New email arrives | Email-to-workflow automation |
-| **n8n Form Trigger** | Form submission | Lead capture, internal data collection |
-| **Chat Trigger** | Chat message received | AI chatbot and agent UIs |
-| **Activation Trigger** | Workflow activated / deactivated | Bootstrap actions, setup routines |
-| **Error Trigger** | Execution error in any workflow | Global error handling and alerting |
-| **SSE Trigger** | Server-Sent Events stream | Real-time data pipelines |
-| **Local File Trigger** | File system change | Local file monitoring (self-hosted only) |
-| **RSS Feed Trigger** | New RSS/Atom item | Blog, news, and content monitoring |
-| **Execute Sub-workflow Trigger** | Called by parent workflow | Sub-workflow / function entry points |
-| **MCP Server Trigger** | MCP protocol call | n8n as an AI agent tool server |
-| **n8n Trigger** | n8n instance events | Internal platform event responses |
-| **Workflow Trigger** | Another workflow event | Cross-workflow event chaining |
-| **GitHub Trigger** | Push, PR, issue, release events | CI/CD, DevOps automation |
-| **Gmail Trigger** | New Gmail message matching filter | Email processing pipelines |
-| **Slack Trigger** | Slack events (message, reaction, etc.) | Slack bot workflows |
-| **Airtable Trigger** | Record created / updated | Database-driven automation |
-| **Stripe Trigger** | Payment, subscription, customer events | E-commerce automation |
-| **Shopify Trigger** | Order, product, customer events | E-commerce order processing |
-| **Jira Trigger** | Issue created / updated | Project management automation |
-| **Notion Trigger** | Database item changes | Notion-based workflows |
-| **Typeform Trigger** | Form submission | Survey and lead form processing |
-| **HubSpot Trigger** | CRM events | CRM-driven workflows |
-| **Salesforce Trigger** | Object create / update | Enterprise CRM automation |
-| **Telegram Trigger** | Bot message received | Telegram bot workflows |
-| **Discord Trigger** | Server events | Discord bot automation |
-| **Linear Trigger** | Issue events | Engineering team workflows |
-| **Postgres Trigger** | Database changes (LISTEN/NOTIFY) | DB-driven real-time workflows |
-| **Redis Trigger** | Pub/Sub messages | Event-driven microservice patterns |
-| **Kafka Trigger** | Kafka topic messages | High-volume event streaming |
-| **RabbitMQ Trigger** | Queue messages | Message queue processing |
-| **MQTT Trigger** | IoT / MQTT messages | IoT sensor and device workflows |
-| **Google Sheets Trigger** | Spreadsheet changes | Spreadsheet-driven automation |
-| **Google Calendar Trigger** | Event create / update | Calendar-based reminders |
-| **Webhook (100+ services)** | Service-specific webhooks | Shopify, Stripe, Jira, GitHub, etc. |
+| Node | Purpose | Key Properties | Common Use Case | ⚠️ Notes |
+|------|---------|----------------|-----------------|----------|
+| **Activation Trigger** | Starts workflow when activated | None | Auto-run workflows | Only works when workflow is active |
+| **Chat Trigger** | Trigger via chat input | Chat source | Chatbots | Needs integration setup |
+| **Email Trigger (IMAP)** | Trigger on new email | Mailbox, filters | Email automation | Polling delays |
+| **Error Trigger** | Runs on workflow error | None | Error workflows | Runs only on failure |
+| **Evaluation Trigger** | Trigger based on evaluation | Expression | Conditional automation | Can loop if misused ⚠️ |
+| **Execute Sub-workflow Trigger** | Trigger from parent workflow | None | Workflow chaining | Used with parent |
+| **Local File Trigger** | Trigger on file changes | Folder path | File automation | Depends on server FS |
+| **Manual Trigger** | Start workflow manually | None | Testing | Not for production |
+| **MCP Server Trigger** | Trigger via MCP protocol | None | AI workflows | Needs MCP setup |
+| **n8n Form Trigger** | Trigger from form submit | None | Data collection | Needs Form node |
+| **n8n Trigger** | Trigger from n8n events | Event type | System events | Limited triggers |
+| **RSS Feed Trigger** | Trigger on new RSS items | Feed URL | Monitoring feeds | Delay depends on polling |
+| **Schedule Trigger** | Run on schedule | Cron expression | Scheduled tasks | Timezone issues ⚠️ |
+| **SSE Trigger** | Trigger via server events | Endpoint | Real-time updates | Needs SSE source |
+| **Webhook** | Receive HTTP requests | URL, method | API endpoints | Public exposure ⚠️ |
+| **Workflow Trigger** | Trigger from another workflow | Workflow ID | Workflow chaining | Avoid loops ⚠️ |
 
 ---
 
-### Core Nodes — Data Transformation
+### Data Transformation Nodes
 
-| Node | Purpose |
-|------|---------|
-| **Edit Fields (Set)** | Add, update, rename, or remove fields on items |
-| **Code** | Write custom JavaScript or Python for any transformation |
-| **Filter** | Keep only items that match a condition (discard the rest) |
-| **Rename Keys** | Rename JSON property keys without touching values |
-| **Aggregate** | Aggregate multiple items into one (sum, list, count, etc.) |
-| **Sort** | Sort items by one or more fields |
-| **Limit** | Keep only the first N items |
-| **Split Out** | Explode an array field into individual items |
-| **Summarize** | Group items and aggregate like SQL GROUP BY |
-| **Remove Duplicates** | Deduplicate items by one or more key fields |
-| **AI Transform** | Transform data using a natural language instruction + LLM |
-| **HTML** | Extract data from HTML pages or generate HTML output |
-| **XML** | Parse or generate XML data |
-| **Markdown** | Convert between Markdown and HTML |
-| **Crypto** | Hash (SHA, MD5), encrypt, and decrypt data |
-| **Date & Time** | Parse, format, calculate, and manipulate date/time values |
-| **Convert to File** | Convert data to CSV, XLSX, PDF, or other file formats |
-| **Extract From File** | Extract structured data from uploaded files |
-| **Compression** | Zip or unzip files and folders |
-| **JWT** | Sign and verify JSON Web Tokens |
-| **TOTP** | Generate time-based one-time passwords (2FA codes) |
+| Node | Purpose | Key Properties | Common Use Case | ⚠️ Notes |
+|------|---------|----------------|-----------------|----------|
+| **Aggregate** | Combine multiple items into one | Fields, Aggregation type | Summarizing data | Requires grouped input |
+| **AI Transform** | Use AI to modify data | Prompt, Model | AI enrichment | Watch token usage ⚠️ |
+| **Compare Datasets** | Compare two datasets | Fields to compare | Data validation | Input order matters |
+| **Edit Fields (Set)** | Add/edit/remove fields | Fields, Keep Only Set | Data mapping | "Keep Only Set" can delete existing data ⚠️ |
+| **Filter** | Filter items by condition | Conditions | Data filtering | Removes unmatched items |
+| **HTML** | Extract or generate HTML | Selectors | Web scraping | CSS selectors needed |
+| **Limit** | Restrict number of items | Limit number | Performance control | Cuts data permanently |
+| **Loop Over Items (Split in Batches)** | Process items in batches | Batch size | Large datasets | Prevent memory issues |
+| **Merge** | Combine multiple inputs | Mode (append, merge) | Join data | Input order matters ⚠️ |
+| **Remove Duplicates** | Eliminate duplicate items | Fields | Data cleaning | Needs correct key field |
+| **Rename Keys** | Rename JSON fields | Mapping | Data transformation | Case-sensitive |
+| **Sort** | Sort data | Field, order | Data ordering | Only affects current output |
+| **Split Out** | Split array into individual items | Field | Normalize data | Creates multiple items |
+| **Summarize** | Group and aggregate (SQL-like) | Fields, operations | Reports/analytics | Like SQL GROUP BY |
+| **XML** | Parse or create XML | Input/output format | Data conversion | Structure-sensitive |
 
 ---
 
-### Core Nodes — Flow Control
+### Flow Control Nodes
 
-| Node | Purpose |
-|------|---------|
-| **If** | Binary branch — routes items to true or false output |
-| **Switch** | Multi-path routing — routes items based on a value match |
-| **Merge** | Combine data from two or more parallel branches |
-| **Loop Over Items (Split in Batches)** | Process items in batches; iterate until complete |
-| **Wait** | Pause execution — resume after time delay or webhook signal |
-| **Stop And Error** | Halt execution and throw a custom error message |
-| **No Operation** | Pass-through placeholder — useful for workflow planning |
-| **Execute Sub-workflow** | Call another n8n workflow (synchronous or async) |
-
----
-
-### Core Nodes — HTTP & Communication
-
-| Node | Purpose |
-|------|---------|
-| **HTTP Request** | Make any HTTP/REST/GraphQL API call with full control |
-| **Webhook** | Receive and respond to HTTP requests mid-workflow |
-| **Respond to Webhook** | Send a custom HTTP response back to a webhook caller |
-| **Send Email** | Send emails via SMTP (Gmail, Outlook, any SMTP server) |
-| **GraphQL** | Execute GraphQL queries and mutations |
-| **RSS Read** | Fetch and parse RSS/Atom feeds |
-| **FTP** | Transfer files via FTP or SFTP |
-| **SSH** | Run commands on remote servers via SSH |
-| **Read/Write Files from Disk** | Read and write local files (self-hosted instances only) |
+| Node | Purpose | Key Properties | Common Use Case | ⚠️ Notes |
+|------|---------|----------------|-----------------|----------|
+| **Evaluation** | Evaluate expressions | Expression | Conditional checks | Use expressions carefully |
+| **Execute Sub-workflow** | Call another workflow | Workflow ID | Modular design | Pass data explicitly |
+| **If** | Conditional branching | Conditions | Logic flow | Only 2 outputs |
+| **Merge** | Combine parallel branches | Mode | Join data streams | |
+| **No Operation** | Pass-through placeholder | None | Placeholder | Useful for testing/planning |
+| **Stop And Error** | Stop workflow with error | Message | Fail handling/validation | |
+| **Switch** | Multiple conditional branches | Cases | Complex routing | More flexible than IF |
+| **Wait** | Delay/pause workflow | Time or webhook | Scheduling, approvals | Can pause indefinitely ⚠️ |
 
 ---
 
-### Core Nodes — AI & Utilities
+### HTTP & Integration Nodes
 
-| Node | Purpose |
-|------|---------|
-| **AI Transform** | Use an LLM to transform data with a natural language prompt |
-| **Evaluation** | Score and evaluate AI model outputs |
-| **Evaluation Trigger** | Trigger evaluation runs |
-| **Debug Helper** | Inject mock data to test downstream nodes |
-| **n8n** | Manage n8n itself — workflows, executions, credentials |
-| **Data table** | Display data in a structured table view |
-| **MCP Client** | Connect to external MCP (Model Context Protocol) servers |
+| Node | Purpose | Key Properties | Common Use Case | ⚠️ Notes |
+|------|---------|----------------|-----------------|----------|
+| **FTP** | Transfer files via FTP/SFTP | Host, credentials | File sync | Passive mode issues |
+| **GraphQL** | Query GraphQL APIs | Query, endpoint | API integration | Requires schema knowledge |
+| **HTTP Request** | Call external APIs | URL, Method, Headers | Integrations | Handle pagination ⚠️ |
+| **MCP Client** | Connect to MCP server | Endpoint | AI tools | Advanced usage |
+| **n8n** | Access n8n internal API | Operation | Manage workflows | Requires permissions |
+| **Respond to Webhook** | Send webhook response | Response data | API endpoints | Must match request |
+| **RSS Read** | Read RSS feeds | URL | News feeds | Polling-based |
+| **SSH** | Execute commands remotely | Host, key | Server automation | Security risk ⚠️ |
+| **Webhook** | Receive HTTP requests | URL, method | API endpoints | See 02-webhook-deep-dive.md |
 
 ---
 
-### App / Action Nodes (Key Integrations)
+### Security Nodes
 
-#### Productivity & Communication
+| Node | Purpose | Common Use Case | ⚠️ Notes |
+|------|---------|-----------------|----------|
+| **Crypto** | Encrypt/decrypt/hash data | Security tasks | Hash vs encrypt confusion |
+| **JWT** | Create/verify tokens | Auth systems | Expiry handling |
+| **LDAP** | Query directory services | User lookup | Complex setup |
+| **TOTP** | Generate/verify OTP codes | 2FA systems | Time sync required |
+
+---
+
+### File Handling Nodes
+
+| Node | Purpose | Common Use Case | ⚠️ Notes |
+|------|---------|-----------------|----------|
+| **Compression** | Compress/decompress files | File handling | Binary data required |
+| **Convert to File** | Convert data to file format | Export data | Large data may slow |
+| **Edit Image** | Modify images | Image processing | Needs binary input |
+| **Extract From File** | Extract data from files | CSV/JSON parsing | File must be valid |
+| **Read/Write Files from Disk** | Handle local files | File storage | Server access needed |
+
+---
+
+### Developer & AI Utility Nodes
+
+| Node | Purpose | Common Use Case | ⚠️ Notes |
+|------|---------|-----------------|----------|
+| **Code** | Run custom JavaScript or Python | Complex transformations | Runs per item unless specified |
+| **Data Table** | Store structured data | Internal DB | Limited scalability |
+| **Date & Time** | Format or manipulate dates | Scheduling logic | Timezones important ⚠️ |
+| **Debug Helper** | Inspect data | Debugging | Remove in production |
+| **Execute Command** | Run shell commands | Server automation | Security risk ⚠️ |
+| **Execution Data** | Access past execution data | Logging/debugging | Limited retention |
+| **Git** | Interact with Git repos | Dev workflows | Auth setup needed |
+| **Guardrails** | Add AI safety constraints | AI validation | Prevents bad outputs |
+| **Markdown** | Convert markdown content | Formatting | HTML output |
+| **n8n Form** | Create web forms | User input | UI-based |
+| **Send Email** | Send emails via SMTP | Notifications | Watch spam filters |
+
+---
+
+## App / Action Nodes (270 integrations)
+
+### Productivity & Communication
 | App | Key Actions |
 |-----|-------------|
-| **Slack** | Send message, post to channel, create channel, manage users |
+| **Slack** | Send message, post to channel, create channel |
 | **Gmail** | Send/read emails, manage labels, create drafts |
 | **Microsoft Outlook** | Email, calendar events, contacts |
-| **Microsoft Teams** | Send message, manage channels and meetings |
+| **Microsoft Teams** | Send message, manage channels |
 | **Telegram** | Send message/photo/file, manage bot |
-| **Discord** | Send message, manage server and channels |
+| **Discord** | Send message, manage server |
 | **Notion** | Create/update pages and databases |
 | **Google Calendar** | Create, update, delete events |
-| **Microsoft To Do** | Create and manage tasks |
-| **Todoist** | Manage tasks, projects, comments |
+| **Todoist** | Tasks, projects, comments |
 | **Zoom** | Create meetings, manage webinars |
 
-#### CRM & Sales
+### CRM & Sales
 | App | Key Actions |
 |-----|-------------|
 | **HubSpot** | Contacts, deals, companies, email sequences |
-| **Salesforce** | Leads, contacts, opportunities, reports |
-| **Pipedrive** | Deals, persons, activities, organisations |
-| **Zoho CRM** | Contacts, leads, modules |
-| **ActiveCampaign** | Contacts, campaigns, tags, automations |
-| **Freshdesk** | Tickets, contacts, agents |
-| **Freshservice** | Incidents, service requests, assets |
-| **Copper** | Leads, people, companies |
+| **Salesforce** | Leads, contacts, opportunities |
+| **Pipedrive** | Deals, persons, activities |
+| **ActiveCampaign** | Contacts, campaigns, tags |
+| **Freshdesk / Freshservice** | Tickets, contacts, assets |
 
-#### Data & Databases
+### Data & Databases
 | App | Key Actions |
 |-----|-------------|
 | **Google Sheets** | Read/write rows, create/update sheets |
-| **Airtable** | Records, fields, views, formulas |
+| **Airtable** | Records, fields, views |
 | **Postgres** | SQL queries, insert, update, delete |
 | **MySQL** | SQL queries, transactions |
 | **MongoDB** | Documents, collections, aggregations |
 | **Redis** | Key-value get/set, pub/sub |
-| **Supabase** | Tables, auth, storage, realtime |
-| **NocoDB** | Tables, records, views |
-| **Baserow** | Tables and row operations |
+| **Supabase** | Tables, auth, storage |
 
-#### File Storage & Documents
+### Developer & DevOps
 | App | Key Actions |
 |-----|-------------|
-| **Google Drive** | Upload, download, move, share files |
-| **Dropbox** | Files, folders, sharing, paper docs |
-| **Microsoft OneDrive** | Files, folders, permissions |
-| **AWS S3** | Object storage, presigned URLs, bucket management |
-| **Box** | Files, folders, comments, tasks |
-| **Nextcloud** | Files, shares, activities |
-
-#### Developer & DevOps
-| App | Key Actions |
-|-----|-------------|
-| **GitHub** | Repos, issues, PRs, commits, releases |
+| **GitHub** | Repos, issues, PRs, commits |
 | **GitLab** | Projects, pipelines, merge requests |
-| **Jira** | Issues, projects, sprints, comments |
-| **Linear** | Issues, cycles, teams, labels |
+| **Jira** | Issues, projects, sprints |
+| **Linear** | Issues, cycles, teams |
 | **Vercel** | Deployments, projects, domains |
-| **AWS Lambda** | Invoke functions, manage functions |
-| **Cloudflare** | DNS, workers, zones, KV store |
-| **Jenkins** | Build jobs, queue builds |
-| **CircleCI** | Pipelines, workflows, jobs |
+| **AWS Lambda** | Invoke functions |
 
-#### AI & ML Services
+### AI & ML Services
 | App | Key Actions |
 |-----|-------------|
-| **OpenAI** | Chat, images (DALL-E), audio, assistants, files |
-| **Anthropic** | Claude chat completions (all models) |
+| **OpenAI** | Chat, images, audio, assistants |
+| **Anthropic** | Claude chat completions |
 | **Google Gemini** | Chat, multimodal, embeddings |
 | **Mistral AI** | Chat completions |
-| **Perplexity** | Search-augmented completions |
 | **DeepSeek** | Chat completions (R1, V3) |
 | **Hugging Face** | Model inference via API |
-| **xAI** | Grok model completions |
-
-#### Payments & E-commerce
-| App | Key Actions |
-|-----|-------------|
-| **Stripe** | Customers, payments, subscriptions, refunds |
-| **Shopify** | Products, orders, customers, inventory |
-| **WooCommerce** | Products, orders, customers |
-| **PayPal** | Payments, subscriptions, invoices |
-| **Chargebee** | Subscriptions, invoices, customers |
+| **xAI (Grok)** | Grok model completions |
 
 ---
 
-### AI / Cluster Nodes
+## All 90 Trigger Nodes
 
-See [`03-ai-nodes-and-nvidia.md`](./03-ai-nodes-and-nvidia.md) for full details and NVIDIA NIM setup.
+| Trigger Node | Category | Purpose | ⚠️ Notes |
+|-------------|----------|---------|----------|
+| ActiveCampaign Trigger | CRM & Marketing | Trigger on contact/campaign events | API limits |
+| Acuity Scheduling Trigger | Scheduling | Trigger on appointments | Delay due to polling |
+| Affinity Trigger | CRM & Sales | Trigger on CRM updates | API limits |
+| Airtable Trigger | Database | Trigger on record changes | Rate limits ⚠️ |
+| AMQP Trigger | Messaging | Listen to queue messages | Needs broker |
+| Asana Trigger | Productivity | Trigger on task updates | API limits |
+| Autopilot Trigger | CRM & Marketing | Trigger on customer journeys | Event-based |
+| AWS SNS Trigger | Messaging | Trigger on notifications | Subscription required |
+| Bitbucket Trigger | DevOps | Trigger on repo events | Webhook setup |
+| Box Trigger | Cloud Storage | Trigger on file changes | Delay possible |
+| Brevo Trigger | CRM & Marketing | Trigger on email events | API limits |
+| Cal Trigger | Scheduling | Trigger on scheduling events | Similar to Calendly |
+| Calendly Trigger | Scheduling | Trigger on bookings | Delay possible |
+| Chargebee Trigger | Finance | Trigger on subscription events | Webhooks needed |
+| ClickUp Trigger | Productivity | Trigger on task changes | API limits |
+| Clockify Trigger | Productivity | Trigger on time entries | Limited API |
+| ConvertKit Trigger | CRM & Marketing | Trigger on subscriber actions | Tag-based |
+| Copper Trigger | CRM & Sales | Trigger on CRM updates | API limits |
+| crowd.dev Trigger | Analytics | Trigger on community events | API limits |
+| Customer.io Trigger | CRM & Marketing | Trigger on customer actions | Event-driven |
+| Emelia Trigger | CRM & Marketing | Trigger on outreach events | Rate limits |
+| Eventbrite Trigger | Events | Trigger on event activity | Delay possible |
+| Facebook Lead Ads Trigger | Marketing | Trigger on new leads | Token expiry ⚠️ |
+| Facebook Trigger | Social Media | Trigger on page activity | API limits |
+| Figma Trigger (Beta) | Design | Trigger on design updates | Beta limitations ⚠️ |
+| Form.io Trigger | Forms | Trigger on form submission | Delay possible |
+| Formstack Trigger | Forms | Trigger on submissions | API limits |
+| GetResponse Trigger | CRM & Marketing | Trigger on campaign events | Rate limits |
+| GitHub Trigger | DevOps | Trigger on repo activity | Webhook setup |
+| GitLab Trigger | DevOps | Trigger on repo events | Permissions |
+| Gmail Trigger | Communication | Trigger on new emails | Delay ⚠️ |
+| Google Business Profile Trigger | Marketing | Trigger on business updates | Permissions |
+| Google Calendar Trigger | Productivity | Trigger on events | Timezone issues ⚠️ |
+| Google Drive Trigger | Cloud Storage | Trigger on file changes | Delay possible |
+| Google Sheets Trigger | Productivity | Trigger on row changes | Rate limits |
+| Gumroad Trigger | E-commerce | Trigger on sales | API limits |
+| Help Scout Trigger | Support | Trigger on conversations | API limits |
+| HubSpot Trigger | CRM & Sales | Trigger on CRM events | Rate limits |
+| Invoice Ninja Trigger | Finance | Trigger on invoices | API limits |
+| Jira Trigger | Productivity | Trigger on issue updates | API limits |
+| Jotform Trigger | Forms | Trigger on submissions | Delay possible |
+| Kafka Trigger | Messaging | Consume streaming events | Complex setup ⚠️ |
+| Keap Trigger | CRM & Marketing | Trigger on CRM actions | API limits |
+| KoboToolbox Trigger | Data Collection | Trigger on submissions | Delay possible |
+| Lemlist Trigger | CRM & Marketing | Trigger on outreach activity | Rate limits |
+| Linear Trigger | Productivity | Trigger on issues | API limits |
+| Mailchimp Trigger | CRM & Marketing | Trigger on subscriber activity | Rate limits |
+| MailerLite Trigger | CRM & Marketing | Trigger on email events | API limits |
+| Mailjet Trigger | Communication | Trigger on email activity | API limits |
+| Mautic Trigger | CRM & Marketing | Trigger on campaigns | Self-hosted required ⚠️ |
+| Microsoft OneDrive Trigger | Cloud Storage | Trigger on file updates | Delay possible |
+| Microsoft Outlook Trigger | Communication | Trigger on email events | Delay ⚠️ |
+| Microsoft Teams Trigger | Communication | Trigger on messages | Permissions |
+| MQTT Trigger | IoT | Subscribe to messages | Broker required |
+| Netlify Trigger | DevOps | Trigger on deploys | API limits |
+| Notion Trigger | Productivity | Trigger on page updates | Delay possible |
+| Onfleet Trigger | Logistics | Trigger on delivery updates | API limits |
+| PayPal Trigger | Finance | Trigger on transactions | Webhooks ⚠️ |
+| Pipedrive Trigger | CRM & Sales | Trigger on deals | API limits |
+| Postgres Trigger | Database | Trigger on DB changes | Needs DB config |
+| Postmark Trigger | Communication | Trigger on email activity | API limits |
+| Pushcut Trigger | Automation | Trigger iOS workflows | iOS only ⚠️ |
+| RabbitMQ Trigger | Messaging | Consume queue messages | Ack handling ⚠️ |
+| Redis Trigger | Database | Trigger on key changes | Limited triggers |
+| Salesforce Trigger | CRM & Sales | Trigger on CRM updates | API limits |
+| SeaTable Trigger | Database | Trigger on table changes | Delay possible |
+| Shopify Trigger | E-commerce | Trigger on store events | API limits |
+| Slack Trigger | Communication | Trigger on messages | Permissions |
+| Strava Trigger | Fitness | Trigger on activity | API limits |
+| Stripe Trigger | Finance | Trigger on payments | Webhooks ⚠️ |
+| SurveyMonkey Trigger | Forms | Trigger on survey responses | Delay possible |
+| Taiga Trigger | Productivity | Trigger on tasks/issues | API limits |
+| Telegram Trigger | Communication | Trigger on messages | Setup needed ⚠️ |
+| TheHive 5 Trigger | Security | Trigger on incidents | Complex setup |
+| TheHive Trigger | Security | Trigger on alerts | Complex setup |
+| Toggl Trigger | Productivity | Trigger on time tracking | API limits |
+| Trello Trigger | Productivity | Trigger on card updates | API limits |
+| Twilio Trigger | Communication | Trigger on SMS/calls | Webhook setup ⚠️ |
+| Typeform Trigger | Forms | Trigger on submissions | Delay possible |
+| Venafi TLS Protect Cloud Trigger | Security | Trigger on cert events | Enterprise tool |
+| Webex by Cisco Trigger | Communication | Trigger on meetings/messages | Permissions |
+| Webflow Trigger | CMS | Trigger on content updates | API limits |
+| WhatsApp Trigger | Communication | Trigger on messages | Meta approval ⚠️ |
+| Wise Trigger | Finance | Trigger on transactions | API limits |
+| WooCommerce Trigger | E-commerce | Trigger on orders | API limits |
+| Workable Trigger | HR | Trigger on hiring events | API limits |
+| Wufoo Trigger | Forms | Trigger on submissions | Delay possible |
+| Zendesk Trigger | Support | Trigger on tickets | API limits |
 
-| Category | Examples |
-|----------|----------|
-| **Root (orchestrators)** | AI Agent, Basic LLM Chain, Q&A Chain, Summarization Chain |
-| **LLM Models** | OpenAI, Anthropic, Gemini, Mistral, Ollama, DeepSeek, Groq |
-| **Memory** | Simple Memory, Redis Memory, Postgres Memory |
-| **Tools** | HTTP Request Tool, Calculator, Wikipedia, Workflow Tool |
-| **Vector Stores** | Pinecone, PGVector, Supabase, Chroma, Qdrant, Weaviate |
-| **Embeddings** | OpenAI, Gemini, Ollama, HuggingFace, Mistral |
+---
+
+## AI / Root Nodes (21 nodes)
+
+See [`03-ai-nodes-and-open-source-models.md`](./03-ai-nodes-and-open-source-models.md) for full details.
+
+| Node | Category | Purpose |
+|------|----------|---------|
+| **AI Agent** | AI & ML | Autonomous AI agent with tools and memory |
+| **Basic LLM Chain** | AI & ML | Simple LLM prompt-response flow |
+| **Question and Answer Chain** | AI & ML | RAG-based Q&A using context documents |
+| **Summarization Chain** | AI & ML | Summarize long text via Map-Reduce |
+| **Information Extractor** | AI & ML | Extract structured fields from unstructured text |
+| **Text Classifier** | AI & ML | Classify text into predefined categories |
+| **Sentiment Analysis** | AI & ML | Detect positive/negative/neutral sentiment |
+| **LangChain Code** | AI & ML | Custom LangChain logic in code |
+| **Microsoft Agent 365 Trigger** | Trigger/AI | Trigger AI agent from Microsoft ecosystem |
+| **Azure AI Search Vector Store** | Vector Database | Store/search embeddings in Azure |
+| **Chroma Vector Store** | Vector Database | Lightweight local/hosted vector DB |
+| **Milvus Vector Store** | Vector Database | Scalable distributed vector DB |
+| **MongoDB Atlas Vector Store** | Vector Database | Vectors in MongoDB Atlas |
+| **PGVector Vector Store** | Vector Database | PostgreSQL vector storage |
+| **Pinecone Vector Store** | Vector Database | Managed production vector DB |
+| **Qdrant Vector Store** | Vector Database | Vector similarity search |
+| **Redis Vector Store** | Vector Database | Fast in-memory embeddings |
+| **Simple Vector Store** | Vector Database | In-memory (testing only) |
+| **Supabase Vector Store** | Vector Database | Vector storage in Supabase |
+| **Weaviate Vector Store** | Vector Database | Semantic hybrid search |
+| **Zep Vector Store** | Vector Database | Memory + vector storage |
+
+---
+
+## AI / Sub-nodes (63 nodes)
+
+### Chat Model Sub-nodes (attach to any Root node)
+
+| Node | Provider | ⚠️ Notes |
+|------|---------|----------|
+| Anthropic Chat Model | Anthropic (Claude) | Token limits |
+| AWS Bedrock Chat Model | AWS | AWS config required ⚠️ |
+| Azure OpenAI Chat Model | Azure | Setup required |
+| Cohere Chat Model | Cohere | API limits |
+| DeepSeek Chat Model | DeepSeek | |
+| Google Gemini Chat Model | Google | API limits |
+| Google Vertex Chat Model | Google Vertex | Complex setup |
+| Groq Chat Model | Groq | Limited models, very fast |
+| Lemonade Chat Model | Lemonade | Paid |
+| Mistral Cloud Chat Model | Mistral AI | API limits |
+| Ollama Chat Model | Local (Ollama) | Needs local server ⚠️ |
+| OpenAI Chat Model | OpenAI | Cost per token ⚠️ |
+| OpenRouter Chat Model | OpenRouter | Model variability |
+| Vercel AI Gateway Chat Model | Vercel | API limits |
+| xAI Grok Chat Model | xAI | Limited access ⚠️ |
+
+### Embeddings Sub-nodes
+
+| Node | Provider | ⚠️ Notes |
+|------|---------|----------|
+| Embeddings AWS Bedrock | AWS | AWS setup ⚠️ |
+| Embeddings Azure OpenAI | Azure | Azure config ⚠️ |
+| Embeddings Cohere | Cohere | Paid API |
+| Embeddings Google Gemini | Google | API limits |
+| Embeddings Google PaLM | Google | Deprecated soon ⚠️ |
+| Embeddings Google Vertex | Google Vertex | Setup needed |
+| Embeddings HuggingFace Inference | HuggingFace | Rate limits |
+| Embeddings Lemonade | Lemonade | Paid |
+| Embeddings Mistral Cloud | Mistral | API limits |
+| Embeddings Ollama | Local (Ollama) | Needs local server ⚠️ |
+| Embeddings OpenAI | OpenAI | Cost ⚠️ |
+
+### Memory Sub-nodes
+
+| Node | Storage | Persistence | ⚠️ Notes |
+|------|---------|-------------|----------|
+| Chat Memory Manager | Configurable | Configurable | |
+| MongoDB Chat Memory | MongoDB | Persistent | DB setup |
+| Motorhead | External service | Persistent | |
+| Postgres Chat Memory | PostgreSQL | Persistent | SQL setup |
+| Redis Chat Memory | Redis | Volatile | Can lose data ⚠️ |
+| Simple Memory | In-memory | Session only | Not persistent ⚠️ |
+| Xata | Cloud DB | Persistent | API limits |
+| Zep | External service | Long-term | External infra |
+
+### Tool Sub-nodes (for AI Agent)
+
+| Node | What the Agent Can Do | ⚠️ Notes |
+|------|-----------------------|----------|
+| AI Agent Tool | Nest another AI agent as a tool | Needs agent |
+| Calculator | Perform math operations | Limited scope |
+| Call n8n Workflow Tool | Invoke another n8n workflow | Requires workflow |
+| Custom Code Tool | Run custom JS/Python logic | Risk ⚠️ |
+| MCP Client Tool | Connect MCP services | Setup required |
+| SearXNG Tool | Self-hosted search | Self-hosted ⚠️ |
+| SerpApi (Google Search) | Perform Google searches | Paid API |
+| Think Tool | Enable chain-of-thought reasoning | Experimental ⚠️ |
+| Vector Store Question Answer Tool | Q&A over vectors | Needs setup |
+| Wikipedia | Fetch Wikipedia content | Public data |
+| Wolfram Alpha | Computation engine | Paid |
+
+### Other Sub-nodes
+
+| Node | Category | Purpose | ⚠️ Notes |
+|------|----------|---------|----------|
+| Auto-fixing Output Parser | Output Parser | Fix LLM formatting errors | Not perfect ⚠️ |
+| Item List Output Parser | Output Parser | Parse lists from LLM | Needs format spec |
+| Structured Output Parser | Output Parser | Enforce schema output | Errors if mismatch ⚠️ |
+| Contextual Compression Retriever | Retriever | Compress retrieved data | Complex |
+| MultiQuery Retriever | Retriever | Multiple query search | Costs more ⚠️ |
+| Vector Store Retriever | Retriever | Retrieve from vector DB | Needs embeddings |
+| Workflow Retriever | Retriever | Retrieve workflow data | Limited use |
+| Character Text Splitter | Text Splitter | Split text by characters | May cut context |
+| Recursive Character Text Splitter | Text Splitter | Smart text splitting | Better results |
+| Token Splitter | Text Splitter | Split by token count | Needs tokenizer |
+| Default Data Loader | Data Loader | Load generic data | |
+| GitHub Document Loader | Data Loader | Load files from GitHub | Rate limits |
+| Reranker Cohere | Reranker | Improve search result quality | Cost ⚠️ |
+| Model Selector | Utility | Choose best model dynamically | Needs tuning |
 
 ---
 
@@ -291,7 +462,7 @@ See [`03-ai-nodes-and-nvidia.md`](./03-ai-nodes-and-nvidia.md) for full details 
 
 | Document | Description |
 |----------|-------------|
-| [`01-core-and-trigger-nodes.md`](./01-core-and-trigger-nodes.md) | Core and trigger node details with parameters |
+| [`01-core-and-trigger-nodes.md`](./01-core-and-trigger-nodes.md) | Core and trigger node details with parameters and code examples |
 | [`02-webhook-deep-dive.md`](./02-webhook-deep-dive.md) | Complete Webhook node guide |
-| [`03-ai-nodes-and-nvidia.md`](./03-ai-nodes-and-nvidia.md) | AI cluster nodes and NVIDIA NIM integration |
+| [`03-ai-nodes-and-open-source-models.md`](./03-ai-nodes-and-open-source-models.md) | AI cluster nodes, local LLM setup (Ollama), NVIDIA NIM, all open-source APIs |
 | [`04-community-and-custom-nodes.md`](./04-community-and-custom-nodes.md) | Community nodes and custom node development |

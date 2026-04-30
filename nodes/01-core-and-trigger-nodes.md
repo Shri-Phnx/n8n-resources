@@ -1,7 +1,10 @@
 # n8n Core & Trigger Nodes — Detailed Reference
 
 > **Author:** Shrinivas Ramaprasad  
-> **Last updated:** April 2026
+> **Last updated:** April 2026  
+> **Source:** n8n Docs + N8N_All_Nodes.xlsx (67 Core Nodes verified)
+
+> ⚠️ = Known issue, common pitfall, or important warning to be aware of before using this node.
 
 ---
 
@@ -19,7 +22,7 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 | **When to use** | Testing, one-off data migrations, demo runs |
 | **How to use** | Add to canvas → click **"Execute workflow"** button |
 | **Output** | One empty item `{}` — downstream nodes receive this as input |
-| **Key setting** | None — it is a zero-config trigger |
+| **⚠️ Warning** | Not for production — use Schedule or Webhook trigger instead |
 
 ---
 
@@ -30,6 +33,7 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 | **Purpose** | Run workflow on a recurring schedule |
 | **Supports** | Every N minutes/hours, specific days/times, cron expressions |
 | **Cron syntax** | `0 9 * * 1-5` = Every weekday at 9 AM |
+| **⚠️ Warning** | Always set timezone explicitly — default may not match your region |
 
 **Common cron patterns:**
 
@@ -44,7 +48,7 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 **Key settings:**
 - **Trigger Interval** — Simple picker (every N minutes/hours/days/weeks)
 - **Cron Expression** — Advanced custom schedule
-- **Timezone** — Always set explicitly; default may not match your region
+- **Timezone** — Always set explicitly; default may not match your region ⚠️
 
 ---
 
@@ -57,8 +61,7 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 | **Filters** | Mailbox folder, read/unread, subject contains, from address |
 | **Output** | Email fields: `from`, `to`, `subject`, `text`, `html`, `date`, attachments |
 | **Poll interval** | Configurable — how often n8n checks for new mail |
-
-**Supports:** Gmail (via App Password or OAuth), Outlook, Yahoo, any IMAP server
+| **⚠️ Warning** | Polling-based — not real-time; expect 30–60 second delays |
 
 ---
 
@@ -83,6 +86,7 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 | **Output** | `chatInput` (user message), `sessionId` (conversation ID) |
 | **Use with** | AI Agent node for conversational workflows |
 | **Authentication** | None (public), or Basic Auth |
+| **⚠️ Warning** | Enable "Make Chat Publicly Available" toggle to share externally |
 
 ---
 
@@ -94,6 +98,7 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 | **How to use** | Set this as the error workflow in **Settings → Error workflow** |
 | **Output** | `workflow`, `execution`, `error` — full error context |
 | **Common actions** | Send Slack/email alert, log to Airtable, create Jira ticket |
+| **⚠️ Warning** | Only runs on failure — never runs if the workflow succeeds |
 
 ---
 
@@ -107,11 +112,20 @@ Trigger nodes start a workflow. Every workflow must begin with exactly one trigg
 
 ---
 
+### Evaluation Trigger
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Trigger workflow based on an expression evaluation |
+| **⚠️ Warning** | Can loop if the condition is always true — add a Stop And Error safeguard |
+
+---
+
 ## Part 2 — Core Nodes (Detailed)
 
 ---
 
-### HTTP Request
+### HTTP Request ⚠️
 
 The most powerful and versatile node in n8n — calls any REST, SOAP, or GraphQL API.
 
@@ -127,7 +141,11 @@ The most powerful and versatile node in n8n — calls any REST, SOAP, or GraphQL
 | **Options** | Follow redirects, timeout, proxy, SSL ignore, batching |
 | **Pagination** | Built-in pagination — offset/cursor/page-based |
 
-**When to use over dedicated nodes:** When n8n doesn't have a specific node for a service, or when a service node doesn't expose a specific API endpoint.
+**⚠️ Common pitfalls:**
+- Forgetting pagination on large datasets — enable **Pagination** under Options
+- SSL certificate errors — toggle "Allow Unauthorized Certs" in Options for testing (not production)
+- Rate limits — use Loop Over Items with a Wait node between batches
+- Dynamic URLs must be in expressions: `{{ 'https://api.example.com/users/' + $json.userId }}`
 
 **Example — calling NVIDIA NIM API:**
 ```json
@@ -154,6 +172,7 @@ Run custom JavaScript or Python directly inside a workflow.
 | **Mode** | Run Once for All Items / Run Once for Each Item |
 | **Input** | Access via `$input.all()`, `$input.first()`, `$input.item` |
 | **Output** | Must return an array of objects: `return [{ json: { ... } }]` |
+| **⚠️ Warning** | Remove Debug Helper nodes before production — they add mock data |
 
 **JavaScript example — transform and filter:**
 ```javascript
@@ -169,20 +188,6 @@ return items
   }));
 ```
 
-**Python example:**
-```python
-output = []
-for item in _input.all():
-    data = item.json
-    output.append({
-        'json': {
-            'name': data['name'].upper(),
-            'score': data['score'] * 1.1
-        }
-    })
-return output
-```
-
 **Built-in helpers in JS:**
 - `$json` — current item's JSON
 - `$input` — input data methods
@@ -190,6 +195,44 @@ return output
 - `DateTime` — Luxon library (date operations)
 - `$workflow` — workflow metadata
 - `$execution` — execution metadata
+
+---
+
+### Execute Command ⚠️
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Run shell commands on the n8n server | 
+| **⚠️ Security Risk** | Avoid in production unless absolutely necessary — commands run as the n8n process user |
+| **⚠️ Risk** | Never expose this node's inputs to untrusted user data |
+| **Alternative** | Use SSH node for remote server commands instead |
+
+---
+
+### Edit Fields (Set) ⚠️
+
+Add, update, or remove fields on each item.
+
+| Feature | Detail |
+|---------|--------|
+| **Add field** | New field name + value (static or expression) |
+| **Update field** | Override existing field value |
+| **Remove field** | Delete a field from the item |
+| **Include other fields** | Keep all existing fields (or discard them) |
+| **Mode** | Manual (UI fields) or JSON (write raw JSON) |
+| **⚠️ WARNING** | "Keep Only Set" mode deletes ALL fields not explicitly listed — always verify this setting before using |
+
+---
+
+### Filter Node
+
+Keep only items matching a condition; discard the rest.
+
+| Feature | Detail |
+|---------|--------|
+| **Conditions** | Same condition builder as the If node |
+| **Combine with** | AND / OR logic |
+| **Output** | Single output — only matching items pass through |
 
 ---
 
@@ -221,7 +264,7 @@ Routes items to one of many output paths based on a value.
 
 ---
 
-### Merge Node
+### Merge Node ⚠️
 
 Combines data from two or more incoming branches.
 
@@ -232,32 +275,7 @@ Combines data from two or more incoming branches.
 | **SQL Query** | Run a SQL-like query to join items |
 | **Choose Branch** | Output items from one specific branch |
 | **Wait** | Wait for both branches to complete before merging |
-
----
-
-### Edit Fields (Set) Node
-
-Add, update, or remove fields on each item.
-
-| Feature | Detail |
-|---------|--------|
-| **Add field** | New field name + value (static or expression) |
-| **Update field** | Override existing field value |
-| **Remove field** | Delete a field from the item |
-| **Include other fields** | Keep all existing fields (or discard them) |
-| **Mode** | Manual (UI fields) or JSON (write raw JSON) |
-
----
-
-### Filter Node
-
-Keep only items matching a condition; discard the rest.
-
-| Feature | Detail |
-|---------|--------|
-| **Conditions** | Same condition builder as the If node |
-| **Combine with** | AND / OR logic |
-| **Output** | Single output — only matching items pass through |
+| **⚠️ Warning** | Input order matters — left input is input 1, right input is input 2. Reversing them changes output |
 
 ---
 
@@ -282,8 +300,75 @@ Pause workflow execution temporarily.
 | **Time Interval** | Pause for N seconds/minutes/hours/days |
 | **Specific Time** | Resume at a set date/time |
 | **Webhook** | Pause until an external HTTP request resumes it |
+| **⚠️ Warning** | Paused executions count toward your execution quota on n8n Cloud |
 
 **Webhook resume URL** is generated automatically — share it with external systems to resume the workflow on demand.
+
+---
+
+### Date & Time Node ⚠️
+
+| Operation | Detail |
+|-----------|--------|
+| **Format** | Convert date to any string format |
+| **Parse** | Parse a date string into a DateTime object |
+| **Add / Subtract** | Date arithmetic |
+| **Get current time** | Current timestamp in any timezone |
+| **Round** | Round to nearest minute/hour/day |
+| **⚠️ Warning** | Always specify timezone — default UTC often causes off-by-hours bugs in production |
+
+---
+
+### SSH Node ⚠️
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Execute commands on remote servers via SSH |
+| **Auth** | Password or Private Key |
+| **⚠️ Security Risk** | Outputs include command results — never expose sensitive output to downstream untrusted nodes |
+| **⚠️ Risk** | Avoid running destructive commands without a Stop And Error safeguard |
+
+---
+
+### Stop And Error Node
+
+| Parameter | Detail |
+|-----------|--------|
+| **Error message** | Custom message to surface in execution log |
+| **Error object** | Optional structured error data |
+| **Use case** | Validation gates — stop if required data is missing or invalid |
+
+---
+
+### Guardrails Node (AI)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Add safety constraints and validation to AI output |
+| **Rules** | Define allowed/blocked patterns for model responses |
+| **Use case** | Prevent AI agent from producing harmful or off-topic content |
+| **⚠️ Note** | Experimental — test thoroughly before using in production |
+
+---
+
+### Crypto Node
+
+| Operation | Detail |
+|-----------|--------|
+| **Hash** | SHA-256, SHA-512, MD5 — one-way |
+| **HMAC** | Hash-based message authentication (webhook signature validation) |
+| **Encrypt** | AES, etc. — two-way with key |
+| **⚠️ Common confusion** | Hashing is one-way; encryption is reversible. Choose correctly for your use case |
+
+---
+
+### TOTP Node
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Generate or verify time-based one-time passwords (2FA) |
+| **Secret** | Base32-encoded TOTP secret |
+| **⚠️ Warning** | Server time must be accurate (within ±30 seconds) — NTP sync required |
 
 ---
 
@@ -295,32 +380,8 @@ Pause workflow execution temporarily.
 | **To / CC / BCC** | Static or dynamic from data |
 | **Subject** | Static or expression |
 | **Body** | Plain text or HTML |
-| **Attachments** | Binary data from previous nodes (e.g., from Convert to File) |
-
----
-
-### Respond to Webhook Node
-
-Send a custom HTTP response back to a webhook caller — must be used when **Response Mode** is set to `Using Respond to Webhook Node`.
-
-| Parameter | Detail |
-|-----------|--------|
-| **Respond with** | JSON, Text, Binary, No Data, Redirect |
-| **Status code** | Any HTTP status (200, 201, 400, etc.) |
-| **Headers** | Custom response headers |
-| **Data** | Response body — static or dynamic from workflow data |
-
----
-
-### Date & Time Node
-
-| Operation | Detail |
-|-----------|--------|
-| **Format** | Convert date to any string format |
-| **Parse** | Parse a date string into a DateTime object |
-| **Add / Subtract** | Date arithmetic |
-| **Get current time** | Current timestamp in any timezone |
-| **Round** | Round to nearest minute/hour/day |
+| **Attachments** | Binary data from previous nodes |
+| **⚠️ Warning** | Many SMTP servers block emails from automation tools — check spam settings |
 
 ---
 
@@ -333,19 +394,7 @@ Call another n8n workflow from within a workflow.
 | **Workflow ID** | Select the target workflow |
 | **Source of data** | Input items or fixed parameters |
 | **Wait for result** | Synchronous (wait for response) or async (fire and forget) |
-| **Credentials** | Use current workflow's credentials |
-
-**Use case:** Modular design — shared utilities like "Send alert notification" or "Update CRM record" that many workflows call.
-
----
-
-### Stop And Error Node
-
-| Parameter | Detail |
-|-----------|--------|
-| **Error message** | Custom message to surface in execution log |
-| **Error object** | Optional structured error data |
-| **Use case** | Validation gates — stop if required data is missing |
+| **⚠️ Warning** | Always pass data explicitly — don't rely on global state |
 
 ---
 
@@ -360,3 +409,4 @@ Call another n8n workflow from within a workflow.
 | **Scheduled ETL** | Schedule → HTTP Request → Filter → Google Sheets | Regular data sync |
 | **Form-to-CRM** | Form Trigger → HubSpot → Gmail | New lead capture |
 | **Sub-workflow fan-out** | Split Out → Execute Sub-workflow | Parallel processing |
+| **AI validation** | LLM Chain → Guardrails → If → Continue/Stop | Safe AI output |
