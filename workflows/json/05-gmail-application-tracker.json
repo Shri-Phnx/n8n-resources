@@ -1,0 +1,96 @@
+{
+  "name": "Gmail Application Tracker",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": { "item": [{ "mode": "everyMinute" }] },
+        "filters": { "readStatus": "unread", "labels": ["INBOX"] }
+      },
+      "id": "node-gmail-trigger",
+      "name": "Gmail Trigger - New Email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "gmailOAuth2": { "id": "REPLACE_WITH_YOUR_GMAIL_CREDENTIAL_ID", "name": "Gmail" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $json;\nconst subject = (email.subject || '').toLowerCase();\nconst from = (email.from || '').toLowerCase();\nconst body = (email.text || email.snippet || '').toLowerCase();\n\nconst appKeywords = ['application','applied','interview','position','role','opportunity','cv','resume','shortlist','assessment'];\nconst isJobRelated = appKeywords.some(k => subject.includes(k) || body.includes(k));\n\nif (!isJobRelated) return [];\n\nconst emailMatch = from.match(/@([\\w.-]+\\.\\w+)/);\nconst domain = emailMatch ? emailMatch[1] : 'Unknown';\nconst company = domain.split('.')[0].replace(/^(mail|noreply|careers|jobs)/, '').trim();\n\nlet stage = 'Applied';\nif (/interview|schedule|invite/.test(subject + body)) stage = 'Interview Scheduled';\nelse if (/shortlist|shortlisted/.test(subject + body)) stage = 'Shortlisted';\nelse if (/offer/.test(subject + body)) stage = 'Offer';\nelse if (/regret|unsuccessful|not moving|not proceed/.test(subject + body)) stage = 'Rejected';\n\nreturn [{\n  json: {\n    emailId: email.id,\n    company: company.charAt(0).toUpperCase() + company.slice(1),\n    subject: email.subject,\n    from: email.from,\n    stage,\n    emailDate: email.date,\n    loggedAt: new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })\n  }\n}];"
+      },
+      "id": "node-extract",
+      "name": "Extract Application Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "REPLACE_WITH_YOUR_SPREADSHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Applications", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email ID": "={{ $json.emailId }}",
+            "Company": "={{ $json.company }}",
+            "Subject": "={{ $json.subject }}",
+            "From": "={{ $json.from }}",
+            "Stage": "={{ $json.stage }}",
+            "Email Date": "={{ $json.emailDate }}",
+            "Logged At": "={{ $json.loggedAt }}"
+          }
+        },
+        "matchingColumns": ["Email ID"]
+      },
+      "id": "node-sheets",
+      "name": "Log to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [690, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_WITH_YOUR_GOOGLE_CREDENTIAL_ID", "name": "Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{
+            "value1": "={{ $json.stage }}",
+            "operation": "regex",
+            "value2": "Interview Scheduled|Offer"
+          }]
+        }
+      },
+      "id": "node-if-important",
+      "name": "Important Stage?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
+        "text": "=\ud83d\udcec *Application Update*\n\n\ud83c\udfe2 {{ $json.company }}\n\ud83d\udccb {{ $json.stage }}\n\ud83d\udce7 {{ $json.subject }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "node-telegram",
+      "name": "Telegram: Stage Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1130, 200],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger - New Email": { "main": [[{ "node": "Extract Application Data", "type": "main", "index": 0 }]] },
+    "Extract Application Data": { "main": [[{ "node": "Log to Sheets", "type": "main", "index": 0 }]] },
+    "Log to Sheets": { "main": [[{ "node": "Important Stage?", "type": "main", "index": 0 }]] },
+    "Important Stage?": { "main": [[{ "node": "Telegram: Stage Alert", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateId": "cf-gmail-app-tracker" }
+}

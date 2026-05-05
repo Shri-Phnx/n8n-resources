@@ -1,0 +1,73 @@
+{
+  "name": "Daily Morning Briefing",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "triggerAtHour": 9 }]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Schedule Trigger - 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "readRows",
+        "documentId": { "__rl": true, "value": "REPLACE_WITH_YOUR_SPREADSHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Tickets", "mode": "name" },
+        "filtersUI": {
+          "values": [{ "lookupColumn": "Status", "lookupValue": "Open" }]
+        }
+      },
+      "id": "node-sheets-tickets",
+      "name": "Get Open Tickets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [470, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_WITH_YOUR_GOOGLE_CREDENTIAL_ID", "name": "Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst date = new Date().toLocaleDateString('en-IN', {\n  timeZone: 'Asia/Kolkata',\n  weekday: 'long', day: 'numeric', month: 'long'\n});\n\nconst tickets = items;\nconst critical = tickets.filter(t => t.json['Priority'] === 'Critical').length;\nconst high = tickets.filter(t => t.json['Priority'] === 'High').length;\nconst medium = tickets.filter(t => t.json['Priority'] === 'Medium').length;\n\nconst report = [\n  `\ud83d\udcca *Daily IT Status \u2014 ${date}*`,\n  '',\n  `\ud83c\udfab *Open Tickets: ${tickets.length}*`,\n  `  \ud83d\udd34 Critical: ${critical}`,\n  `  \ud83d\udfe0 High: ${high}`,\n  `  \ud83d\udfe1 Medium: ${medium}`,\n  '',\n  tickets.length === 0 ? '\u2705 All clear! No open tickets.' : `Oldest: ${tickets[0]?.json?.['Ticket ID'] || 'N/A'}`\n].join('\\n');\n\nreturn [{ json: { report, ticketCount: tickets.length } }];"
+      },
+      "id": "node-code-report",
+      "name": "Compile Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.report }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "node-telegram",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [910, 300],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - 9 AM": {
+      "main": [[{ "node": "Get Open Tickets", "type": "main", "index": 0 }]]
+    },
+    "Get Open Tickets": {
+      "main": [[{ "node": "Compile Report", "type": "main", "index": 0 }]]
+    },
+    "Compile Report": {
+      "main": [[{ "node": "Send to Telegram", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" },
+  "meta": { "templateId": "cf-daily-briefing" }
+}

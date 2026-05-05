@@ -1,0 +1,151 @@
+{
+  "name": "n8n Workflow Auto-Backup to GitHub",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "triggerAtHour": 2 }]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Schedule - 2 AM Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://localhost:5678/api/v1/workflows",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "responseFormat": "json" } } }
+      },
+      "id": "node-get-workflows",
+      "name": "Get All Workflows via n8n API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [470, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_N8N_API_KEY_CREDENTIAL_ID", "name": "n8n API Key" }
+      },
+      "notes": "Set Header Name: X-N8N-API-KEY, Header Value: your n8n API key from Settings > n8n API"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "data",
+        "options": {}
+      },
+      "id": "node-split",
+      "name": "Split One Per Workflow",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const wf = $json;\nconst safeName = wf.name.replace(/[^a-zA-Z0-9-_ ]/g, '_').replace(/\\s+/g, '_');\nconst filePath = `workflows/${safeName}_${wf.id}.json`;\nconst content = JSON.stringify(wf, null, 2);\nconst base64Content = Buffer.from(content).toString('base64');\nreturn [{\n  json: {\n    filePath,\n    base64Content,\n    workflowId: wf.id,\n    workflowName: wf.name,\n    commitMessage: `backup: ${wf.name} (${new Date().toISOString().split('T')[0]})`\n  }\n}];"
+      },
+      "id": "node-prepare",
+      "name": "Prepare File Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "owner": "REPLACE_WITH_YOUR_GITHUB_USERNAME",
+        "repository": "n8n-workflow-backups",
+        "filePath": "={{ $json.filePath }}"
+      },
+      "id": "node-github-get",
+      "name": "Check If File Exists",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": {
+        "githubApi": { "id": "REPLACE_WITH_YOUR_GITHUB_CREDENTIAL_ID", "name": "GitHub" }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const ghResult = $json;\nconst prev = $('Prepare File Content').first().json;\nconst hasFile = ghResult.sha !== undefined;\nreturn [{ json: { ...prev, existingFileSha: hasFile ? ghResult.sha : null, fileExists: hasFile } }];"
+      },
+      "id": "node-extract-sha",
+      "name": "Extract SHA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [{ "value1": "={{ $json.fileExists }}", "value2": true }]
+        }
+      },
+      "id": "node-if-exists",
+      "name": "File Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1570, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "edit",
+        "owner": "REPLACE_WITH_YOUR_GITHUB_USERNAME",
+        "repository": "n8n-workflow-backups",
+        "filePath": "={{ $json.filePath }}",
+        "fileContent": "={{ $json.base64Content }}",
+        "commitMessage": "={{ $json.commitMessage }}",
+        "additionalParameters": { "sha": "={{ $json.existingFileSha }}" }
+      },
+      "id": "node-github-edit",
+      "name": "Update Existing File",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [1790, 200],
+      "credentials": {
+        "githubApi": { "id": "REPLACE_WITH_YOUR_GITHUB_CREDENTIAL_ID", "name": "GitHub" }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "create",
+        "owner": "REPLACE_WITH_YOUR_GITHUB_USERNAME",
+        "repository": "n8n-workflow-backups",
+        "filePath": "={{ $json.filePath }}",
+        "fileContent": "={{ $json.base64Content }}",
+        "commitMessage": "={{ $json.commitMessage }}"
+      },
+      "id": "node-github-create",
+      "name": "Create New File",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [1790, 400],
+      "credentials": {
+        "githubApi": { "id": "REPLACE_WITH_YOUR_GITHUB_CREDENTIAL_ID", "name": "GitHub" }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule - 2 AM Daily": { "main": [[{ "node": "Get All Workflows via n8n API", "type": "main", "index": 0 }]] },
+    "Get All Workflows via n8n API": { "main": [[{ "node": "Split One Per Workflow", "type": "main", "index": 0 }]] },
+    "Split One Per Workflow": { "main": [[{ "node": "Prepare File Content", "type": "main", "index": 0 }]] },
+    "Prepare File Content": { "main": [[{ "node": "Check If File Exists", "type": "main", "index": 0 }]] },
+    "Check If File Exists": { "main": [[{ "node": "Extract SHA", "type": "main", "index": 0 }]] },
+    "Extract SHA": { "main": [[{ "node": "File Exists?", "type": "main", "index": 0 }]] },
+    "File Exists?": {
+      "main": [
+        [{ "node": "Update Existing File", "type": "main", "index": 0 }],
+        [{ "node": "Create New File", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1", "timezone": "Asia/Kolkata" },
+  "meta": { "templateId": "cf-n8n-backup-github" }
+}

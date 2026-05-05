@@ -1,0 +1,136 @@
+{
+  "name": "IT Support Telegram Ticket Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"]
+      },
+      "id": "node-telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{
+            "value1": "={{ $json.message.text }}",
+            "operation": "startsWith",
+            "value2": "/ticket"
+          }]
+        }
+      },
+      "id": "node-if-ticket",
+      "name": "Is /ticket command?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "ticketId", "value": "=TICK-{{ $now.toMillis() }}", "type": "string" },
+            { "name": "userName", "value": "={{ $json.message.from.first_name }}", "type": "string" },
+            { "name": "chatId", "value": "={{ $json.message.chat.id }}", "type": "number" },
+            { "name": "issue", "value": "={{ $json.message.text.replace('/ticket ', '') }}", "type": "string" },
+            { "name": "status", "value": "Open", "type": "string" },
+            { "name": "priority", "value": "Medium", "type": "string" },
+            { "name": "createdAt", "value": "={{ $now.toFormat('dd/MM/yyyy HH:mm') }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "node-edit-fields",
+      "name": "Build Ticket Object",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [690, 200]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "REPLACE_WITH_YOUR_SPREADSHEET_ID", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Tickets", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Ticket ID": "={{ $json.ticketId }}",
+            "User Name": "={{ $json.userName }}",
+            "Chat ID": "={{ $json.chatId }}",
+            "Issue": "={{ $json.issue }}",
+            "Status": "={{ $json.status }}",
+            "Priority": "={{ $json.priority }}",
+            "Created At": "={{ $json.createdAt }}"
+          }
+        },
+        "matchingColumns": ["Ticket ID"]
+      },
+      "id": "node-sheets",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [910, 100],
+      "credentials": {
+        "googleSheetsOAuth2Api": { "id": "REPLACE_WITH_YOUR_GOOGLE_CREDENTIAL_ID", "name": "Google Sheets" }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_SLACK_WEBHOOK_OR_USE_SLACK_NODE",
+        "text": "=\ud83c\udfab *New IT Ticket*\n\n*ID:* {{ $json.ticketId }}\n*From:* {{ $json.userName }}\n*Issue:* {{ $json.issue }}\n*Time:* {{ $json.createdAt }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "node-telegram-confirm",
+      "name": "Send Confirmation to User",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [910, 300],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "Use /ticket to create a ticket.\nExample: /ticket My laptop won't connect to VPN",
+        "additionalFields": {}
+      },
+      "id": "node-telegram-help",
+      "name": "Send Help Message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [690, 420],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Is /ticket command?", "type": "main", "index": 0 }]]
+    },
+    "Is /ticket command?": {
+      "main": [
+        [{ "node": "Build Ticket Object", "type": "main", "index": 0 }],
+        [{ "node": "Send Help Message", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Ticket Object": {
+      "main": [
+        [
+          { "node": "Log to Google Sheets", "type": "main", "index": 0 },
+          { "node": "Send Confirmation to User", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "templateId": "cf-it-telegram-ticket-bot",
+    "instanceId": "n8n-resources"
+  }
+}

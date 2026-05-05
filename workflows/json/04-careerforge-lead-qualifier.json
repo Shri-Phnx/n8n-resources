@@ -1,0 +1,113 @@
+{
+  "name": "CareerForge Lead Qualifier",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "careerforge-lead",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook - Lead Received",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_HEADER_AUTH_CREDENTIAL_ID", "name": "Webhook Auth" }
+      },
+      "webhookId": "careerforge-lead"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "name", "value": "={{ $json.body.name || $json.body.fullName }}", "type": "string" },
+            { "name": "email", "value": "={{ $json.body.email.toLowerCase().trim() }}", "type": "string" },
+            { "name": "jobTitle", "value": "={{ $json.body.jobTitle || $json.body.job_title }}", "type": "string" },
+            { "name": "experience", "value": "={{ $json.body.yearsExperience || $json.body.experience }}", "type": "string" },
+            { "name": "location", "value": "={{ $json.body.location }}", "type": "string" },
+            { "name": "painPoint", "value": "={{ $json.body.painPoint || $json.body.message }}", "type": "string" },
+            { "name": "submittedAt", "value": "={{ $now.toISO() }}", "type": "string" }
+          ]
+        }
+      },
+      "id": "node-normalise",
+      "name": "Normalise Lead Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $json;\nlet score = 0;\n\nconst title = (lead.jobTitle || '').toLowerCase();\nif (/director|vp|head of|chief/.test(title)) score += 30;\nelse if (/manager|lead|architect/.test(title)) score += 20;\nelse if (/senior|specialist/.test(title)) score += 15;\nelse score += 5;\n\nconst yrs = parseInt(lead.experience) || 0;\nif (yrs >= 10) score += 25;\nelse if (yrs >= 5) score += 15;\nelse if (yrs >= 2) score += 8;\n\nconst loc = (lead.location || '').toLowerCase();\nif (/uae|dubai|abu dhabi|doha|riyadh|gcc|qatar|bahrain|kuwait/.test(loc)) score += 25;\nelse if (/india|chennai|bangalore|mumbai/.test(loc)) score += 15;\nelse score += 5;\n\nconst pain = (lead.painPoint || '').toLowerCase();\nif (/job|salary|offer|career change/.test(pain)) score += 20;\nelse if (/skill|upskill|certif|learn/.test(pain)) score += 10;\nelse score += 5;\n\nconst tier = score >= 80 ? 'Hot' : score >= 50 ? 'Warm' : 'Cold';\nreturn [{ json: { ...lead, score, tier } }];"
+      },
+      "id": "node-score",
+      "name": "Score Lead (Rule-Based)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "mode": "rules",
+        "rules": {
+          "rules": [
+            { "conditions": { "string": [{ "value1": "={{ $json.tier }}", "value2": "Hot" }] }, "outputIndex": 0 },
+            { "conditions": { "string": [{ "value1": "={{ $json.tier }}", "value2": "Warm" }] }, "outputIndex": 1 }
+          ]
+        },
+        "fallbackOutput": 2
+      },
+      "id": "node-switch",
+      "name": "Route by Tier",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
+        "text": "=\ud83d\udd25 *HOT LEAD!*\n\n*Name:* {{ $json.name }}\n*Score:* {{ $json.score }}/100\n*Title:* {{ $json.jobTitle }}\n*Location:* {{ $json.location }}\n*Email:* {{ $json.email }}\n*Pain Point:* {{ $json.painPoint }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "node-telegram-hot",
+      "name": "Alert: Hot Lead",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1130, 100],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "REPLACE_WITH_YOUR_TELEGRAM_CHAT_ID",
+        "text": "=\ud83d\udfe0 *Warm Lead*\n*Name:* {{ $json.name }} | Score: {{ $json.score }}\n*Title:* {{ $json.jobTitle }} | {{ $json.location }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "node-telegram-warm",
+      "name": "Log: Warm Lead",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1130, 300],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_WITH_YOUR_TELEGRAM_CREDENTIAL_ID", "name": "Telegram" }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Lead Received": { "main": [[{ "node": "Normalise Lead Data", "type": "main", "index": 0 }]] },
+    "Normalise Lead Data": { "main": [[{ "node": "Score Lead (Rule-Based)", "type": "main", "index": 0 }]] },
+    "Score Lead (Rule-Based)": { "main": [[{ "node": "Route by Tier", "type": "main", "index": 0 }]] },
+    "Route by Tier": {
+      "main": [
+        [{ "node": "Alert: Hot Lead", "type": "main", "index": 0 }],
+        [{ "node": "Log: Warm Lead", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateId": "cf-lead-qualifier" }
+}
