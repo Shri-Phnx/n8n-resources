@@ -1,1 +1,222 @@
-# Local SQL Database Integration in n8n\n\n> Author: Shrinivas Ramaprasad | April 2026  \n> MySQL + PostgreSQL: connecting, querying, cross-table joins, and automated management.\n\n---\n\n## Part 1 — MySQL Node: Every Field\n\n**Credential:** MySQL credential (see `credentials/02-credentials-part2.md`)  \n**Requirement:** MySQL server accessible from n8n (same machine, LAN, or Docker network)\n\n### Operation: Execute Query\n\n| Field | Options | Sample Value | What It Does | If Wrong |\n|---|---|---|---|---|\n| **Credential** | Dropdown | `MySQL - CRM Production` | Auth connection | Node fails |\n| **Operation** | Execute Query, Insert, Update, Delete | `Execute Query` | What to do | Wrong fields |\n| **Query** | SQL string | `SELECT * FROM users WHERE status = :status` | The SQL to run | Syntax error |\n| **Query Parameters** | Key-value pairs | `status = active` | Binds `:status` safely | SQL injection risk if inline |\n| **Options → Query Batching** | Independently, Transaction | `Transaction` | Wrap in DB transaction | Data partial update on error |\n\n**Sample queries:**\n```sql\n-- Read: Get active users created today\nSELECT id, name, email, created_at\nFROM users\nWHERE status = :status\n  AND DATE(created_at) = CURDATE()\nORDER BY created_at DESC\nLIMIT :limit\n\n-- Parameters: status=active, limit=100\n\n-- Insert: add new record\nINSERT INTO tickets (title, email, priority, status, created_at)\nVALUES (:title, :email, :priority, 'open', NOW())\n\n-- Update: change status\nUPDATE tickets\nSET status = :status, updated_at = NOW()\nWHERE id = :id\n\n-- Delete (use with caution)\nDELETE FROM tickets WHERE id = :id AND status = 'closed'\n```\n\n**Accessing output:**\n```\n{{ $json.id }}, {{ $json.name }}, {{ $json.email }}\n```\n\n**⚠️ MySQL mistakes:**\n| Mistake | Effect | Fix |\n|---|---|---|\n| Inline values: `WHERE id = {{ $json.id }}` | SQL injection risk | Use parameters: `WHERE id = :id` |\n| No LIMIT on SELECT | Returns 100k rows, crashes n8n | Always add `LIMIT :limit` |\n| Wrong column name | Unknown column error | Check table schema first |\n\n---\n\n## Part 2 — PostgreSQL Node: Every Field\n\n**Credential:** PostgreSQL credential\n\n### Operation: Execute Query\n\n| Field | Sample Value | Notes |\n|---|---|---|\n| **Credential** | `PostgreSQL - CRM Prod` | Auth connection |\n| **Query** | `SELECT * FROM users WHERE status = $1` | PostgreSQL uses `$1`, `$2` placeholders |\n| **Query Parameters** | `active` | First value for `$1` |\n\n**Sample queries (PostgreSQL syntax):**\n```sql\n-- Read with JOIN\nSELECT\n  u.id, u.name, u.email,\n  COUNT(o.id) AS order_count,\n  SUM(o.amount) AS total_spent\nFROM users u\nLEFT JOIN orders o ON o.user_id = u.id\nWHERE u.status = $1\nGROUP BY u.id, u.name, u.email\nHAVING SUM(o.amount) > $2\nORDER BY total_spent DESC\nLIMIT $3\n\n-- Parameters: active, 1000, 50\n\n-- Upsert (insert or update)\nINSERT INTO contacts (email, name, updated_at)\nVALUES ($1, $2, NOW())\nON CONFLICT (email)\nDO UPDATE SET name = EXCLUDED.name, updated_at = NOW()\n\n-- Get last inserted ID\nINSERT INTO tickets (title, email) VALUES ($1, $2) RETURNING id\n```\n\n---\n\n## Part 3 — Cross-Table Joins in n8n Workflows\n\n### Option A: SQL JOIN in one query (best performance)\n```sql\nSELECT\n  c.id AS customer_id, c.name, c.email,\n  o.id AS order_id, o.amount, o.status AS order_status,\n  p.name AS product_name\nFROM customers c\nINNER JOIN orders o ON o.customer_id = c.id\nINNER JOIN order_items oi ON oi.order_id = o.id\nINNER JOIN products p ON p.id = oi.product_id\nWHERE c.status = $1\n  AND o.created_at > NOW() - INTERVAL '30 days'\nORDER BY o.created_at DESC\n```\n\n### Option B: Multiple nodes with Merge (when data is in different DBs)\n```\nPostgreSQL: Get users → { userId, name, email }\n     +\nMySQL: Get orders → { userId, orderId, amount }\n     ↓\nMerge node (Combine → By Matching Field)\n  Input 1 match field: userId\n  Input 2 match field: userId\n     ↓\nCombined output: { userId, name, email, orderId, amount }\n```\n\n### Option C: Enrich items one by one in a loop (for small datasets)\n```\nGet Users (PostgreSQL)\n    → Loop Over Items (batch: 10)\n          → PostgreSQL: Get orders for this user\n              Query: SELECT * FROM orders WHERE user_id = $1\n              Parameters: {{ $json.userId }}\n          → Edit Fields: merge user + orders array\n    [Done] → Send summary\n```\n\n---\n\n## Part 4 — Automatic DB Management\n\n### Pattern 1: Deduplication Before Insert\n```\nGet data from API\n    → MySQL: SELECT id FROM leads WHERE email = :email\n    → If: {{ $json.length > 0 }}\n          [Exists]     → Skip or update\n          [Not exists] → MySQL: INSERT INTO leads\n```\n\n### Pattern 2: Upsert (PostgreSQL)\n```sql\nINSERT INTO leads (email, name, source, created_at)\nVALUES ($1, $2, $3, NOW())\nON CONFLICT (email)\nDO UPDATE SET\n  name = EXCLUDED.name,\n  updated_at = NOW(),\n  sync_count = leads.sync_count + 1\n```\n\n### Pattern 3: Scheduled Sync\n```\nSchedule Trigger (every hour)\n    → MySQL: SELECT * FROM orders\n             WHERE synced_to_crm = 0\n             AND created_at > NOW() - INTERVAL 2 HOUR\n             LIMIT 100\n    → HubSpot: Create Deal (for each order)\n    → MySQL: UPDATE orders SET synced_to_crm = 1, synced_at = NOW()\n             WHERE id IN (:processedIds)\n```\n\n### Pattern 4: Archive Old Records\n```\nSchedule Trigger (daily at 2 AM)\n    → MySQL: INSERT INTO orders_archive\n             SELECT * FROM orders\n             WHERE created_at < NOW() - INTERVAL 90 DAY\n             AND status = 'completed'\n    → MySQL: DELETE FROM orders\n             WHERE created_at < NOW() - INTERVAL 90 DAY\n             AND status = 'completed'\n    → Slack/Telegram: \"Archived X records\"\n```\n\n### Pattern 5: Database Health Monitor\n```\nSchedule Trigger (every 5 min)\n    → MySQL: SELECT\n         (SELECT COUNT(*) FROM orders WHERE status = 'pending'\n           AND created_at < NOW() - INTERVAL 1 HOUR) AS stuck_orders,\n         (SELECT COUNT(*) FROM errors WHERE created_at > NOW() - INTERVAL 5 MINUTE) AS recent_errors\n    → If: stuck_orders > 10 OR recent_errors > 5\n          → Telegram: \"⚠️ DB Alert: {{ $json.stuck_orders }} stuck orders\"\n```\n\n---\n\n## Part 5 — Docker Networking for Local DBs\n\n### n8n and DB in same Docker Compose\n```yaml\nservices:\n  n8n:\n    image: docker.n8n.io/n8nio/n8n\n  mysql:\n    image: mysql:8.0\n    environment:\n      MYSQL_ROOT_PASSWORD: rootpass\n      MYSQL_DATABASE: crm_db\n      MYSQL_USER: n8n_user\n      MYSQL_PASSWORD: SecurePass123!\n\n# In n8n MySQL credential:\n# Host: mysql   ← use service name, NOT localhost\n```\n\n### n8n in Docker, DB on host machine (Windows/Mac)\n```\n# In n8n MySQL credential:\nHost: host.docker.internal\nPort: 3306\n```\n\n### n8n in Docker, DB on host machine (Linux)\n```\n# Add to docker-compose.yml n8n service:\nextra_hosts:\n  - \"host.docker.internal:host-gateway\"\n\n# Then use host.docker.internal as host\n```\n\n### DB on separate server/NAS\n```\n# In n8n credential:\nHost: 192.168.1.100  (server's LAN IP)\nPort: 3306\n# Ensure DB server allows connections from n8n's IP\n```\n\n**⚠️ Connection checklist:**\n- MySQL: `GRANT ... TO 'n8n_user'@'%'` (% = any host)\n- Firewall: port 3306 (MySQL) or 5432 (PostgreSQL) open from n8n to DB\n- SSL: ON for any connection crossing network boundaries\n
+# Local SQL Database Integration in n8n
+
+> Author: Shrinivas Ramaprasad | May 2026
+> MySQL + PostgreSQL: connecting, querying, cross-table joins, and automated management.
+
+---
+
+## Part 1 — MySQL Node: Every Field
+
+**Credential:** MySQL (see `credentials/02-credentials-guide.md`)
+**Requirement:** MySQL server accessible from n8n
+
+### Operation: Execute Query
+
+| Field | Options | Sample Value | What It Does | If Wrong |
+|---|---|---|---|---|
+| Credential | Dropdown | `MySQL - CRM Production` | Auth connection | Node fails |
+| Operation | Execute Query, Insert, Update, Delete | `Execute Query` | Action | Wrong fields |
+| Query | SQL string | `SELECT * FROM users WHERE status = :status` | The SQL to run | Syntax error |
+| Query Parameters | Key-value | `status = active` | Binds `:status` safely | SQL injection risk |
+| Options → Query Batching | Independently, Transaction | `Transaction` | Wrap in DB transaction | Partial updates on error |
+
+Sample queries:
+
+```sql
+-- Read active users
+SELECT id, name, email, created_at
+FROM users
+WHERE status = :status
+  AND DATE(created_at) = CURDATE()
+ORDER BY created_at DESC
+LIMIT :limit
+
+-- Insert new ticket
+INSERT INTO tickets (title, email, priority, status, created_at)
+VALUES (:title, :email, :priority, 'open', NOW())
+
+-- Update status
+UPDATE tickets
+SET status = :status, updated_at = NOW()
+WHERE id = :id
+```
+
+Access output: `{{ $json.id }}` `{{ $json.name }}` `{{ $json.email }}`
+
+**⚠️ MySQL mistakes:**
+
+| Mistake | Effect | Fix |
+|---|---|---|
+| Inline values: `WHERE id = {{ $json.id }}` | SQL injection risk | Use parameters: `WHERE id = :id` |
+| No LIMIT on SELECT | Returns millions of rows | Always add `LIMIT :limit` |
+| Wrong column name | Unknown column error | Check schema first |
+
+---
+
+## Part 2 — PostgreSQL Node: Every Field
+
+**Note:** PostgreSQL uses `$1`, `$2`... placeholders (not `:name`)
+
+```sql
+-- Read with JOIN
+SELECT
+  u.id, u.name, u.email,
+  COUNT(o.id) AS order_count,
+  SUM(o.amount) AS total_spent
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE u.status = $1
+GROUP BY u.id, u.name, u.email
+HAVING SUM(o.amount) > $2
+ORDER BY total_spent DESC
+LIMIT $3
+
+-- Parameters: active, 1000, 50
+
+-- Upsert (insert or update)
+INSERT INTO contacts (email, name, updated_at)
+VALUES ($1, $2, NOW())
+ON CONFLICT (email)
+DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+
+-- Get last inserted ID
+INSERT INTO tickets (title, email) VALUES ($1, $2) RETURNING id
+```
+
+---
+
+## Part 3 — Cross-Table Joins in n8n Workflows
+
+### Option A — SQL JOIN in one query (best performance)
+
+```sql
+SELECT
+  c.id AS customer_id, c.name, c.email,
+  o.id AS order_id, o.amount, o.status AS order_status,
+  p.name AS product_name
+FROM customers c
+INNER JOIN orders o ON o.customer_id = c.id
+INNER JOIN order_items oi ON oi.order_id = o.id
+INNER JOIN products p ON p.id = oi.product_id
+WHERE c.status = $1
+  AND o.created_at > NOW() - INTERVAL '30 days'
+ORDER BY o.created_at DESC
+```
+
+### Option B — Multiple nodes with Merge (for data across different DBs)
+
+```
+PostgreSQL: Get users → { userId, name, email }
+     +
+MySQL: Get orders → { userId, orderId, amount }
+     ↓
+Merge node (Combine → By Matching Field)
+  Input 1 match field: userId
+  Input 2 match field: userId
+     ↓
+Combined: { userId, name, email, orderId, amount }
+```
+
+---
+
+## Part 4 — Automatic DB Management Patterns
+
+### Deduplication Before Insert
+
+```
+Get data from API
+    → MySQL: SELECT id FROM leads WHERE email = :email
+    → If: {{ $json.length > 0 }}
+          [Exists]     → Skip or update
+          [Not exists] → MySQL: INSERT INTO leads
+```
+
+### Scheduled Sync
+
+```
+Schedule Trigger (every hour)
+    → HTTP Request: GET API records updated in last 2 hours
+    → Split Out: individual records
+    → Loop Over Items (batch: 10)
+          → MySQL: CHECK if exists
+          → If: exists? YES → UPDATE | NO → INSERT
+          → Wait: 1 second
+    [Done] → Telegram: "Sync complete"
+```
+
+### Archive Old Records
+
+```sql
+-- Archive and clean in one go
+INSERT INTO orders_archive
+SELECT * FROM orders
+WHERE created_at < NOW() - INTERVAL 90 DAY
+  AND status = 'completed';
+
+DELETE FROM orders
+WHERE created_at < NOW() - INTERVAL 90 DAY
+  AND status = 'completed';
+```
+
+### Database Health Monitor
+
+```sql
+-- One query checks everything
+SELECT
+  (SELECT COUNT(*) FROM orders WHERE status = 'pending'
+   AND created_at < NOW() - INTERVAL 1 HOUR) AS stuck_orders,
+  (SELECT COUNT(*) FROM errors
+   WHERE created_at > NOW() - INTERVAL 5 MINUTE) AS recent_errors
+```
+
+```
+If: stuck_orders > 10 OR recent_errors > 5
+    → Telegram: "⚠️ DB Alert: {{ $json.stuck_orders }} stuck orders"
+```
+
+---
+
+## Part 5 — Docker Networking for Local DBs
+
+### n8n and DB in same Docker Compose
+
+```yaml
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: crm_db
+      MYSQL_USER: n8n_user
+      MYSQL_PASSWORD: SecurePass123!
+
+# In n8n MySQL credential:
+# Host: mysql   ← use service name, NOT localhost
+```
+
+### n8n in Docker, DB on host (Windows/Mac)
+
+```
+Host in credential: host.docker.internal
+Port: 3306
+```
+
+### n8n in Docker, DB on host (Linux)
+
+```yaml
+# Add to n8n service in docker-compose.yml:
+extra_hosts:
+  - "host.docker.internal:host-gateway"
+# Then use: host.docker.internal as host
+```
+
+### DB on separate server/NAS
+
+```
+Host: 192.168.1.100  (server's LAN IP)
+Port: 3306
+# Ensure DB allows connections from n8n's IP:
+# MySQL: GRANT ... TO 'n8n_user'@'192.168.1.%'
+# Firewall: open port 3306 from n8n IP
+```

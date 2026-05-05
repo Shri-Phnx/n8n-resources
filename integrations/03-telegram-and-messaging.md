@@ -1,1 +1,159 @@
-# Telegram, Messaging Apps & Trigger Comparison\n\n> Author: Shrinivas Ramaprasad | April 2026\n\n---\n\n## Telegram — Complete Node Guide\n\n### Credential setup\nSee `credentials/02-credentials-part2.md` → Telegram Bot Token section.\n\n### Telegram Node — Resource: Message, Operation: Send Message\n\n| Field | Options | Sample Value | Required | What It Does | If Wrong/Empty |\n|---|---|---|---|---|---|\n| **Credential** | Dropdown | `Telegram - IT Support Bot` | Yes | Auth all API calls | Node fails |\n| **Resource** | Chat, Callback, File, Message | `Message` | Yes | What to work with | Wrong operations shown |\n| **Operation** | Send Message, Send Photo, Send Document, Send Audio, Edit Message, Delete Message, Pin Message, Send and Wait | `Send Message` | Yes | Action to perform | Wrong fields shown |\n| **Chat ID** | Number or expression | `{{ $json.chatId }}` or `123456789` | Yes | Where to send | `chat_id is empty` error |\n| **Text** | Any text or HTML | `Hello {{ $json.name }}!` | Yes | Message content | Empty message error |\n| **Parse Mode** | Markdown, HTML, None | `HTML` | No | Text formatting | Plain text if none |\n| **Disable Notification** | Toggle | OFF | No | Silent message | Default: notification sent |\n| **Disable Link Preview** | Toggle | OFF | No | Hide URL previews | Default: previews shown |\n| **Reply to Message ID** | Number | `{{ $json.messageId }}` | No | Thread reply | No reply thread if empty |\n| **Reply Markup** | Inline Keyboard, Reply Keyboard | Inline Keyboard | No | Add buttons to message | No buttons if empty |\n\n**Parse Mode HTML sample:**\n```\n<b>New IT Ticket</b>\n\n<b>From:</b> {{ $json.name }}\n<b>Email:</b> {{ $json.email }}\n<b>Issue:</b> {{ $json.issue }}\n<b>Priority:</b> {{ $json.priority }}\n<b>Ticket ID:</b> #{{ $json.ticketId }}\n\n<a href=\"{{ $json.ticketUrl }}\">View in system</a>\n```\n\n### Operation: Send and Wait for Response\n\n| Field | Options | Sample | What It Does |\n|---|---|---|---|\n| **Chat ID** | Number | `{{ $json.chatId }}` | Who to send to |\n| **Message** | Text | `Approve this request?` | Message shown |\n| **Response Type** | Approval, Free Text, Custom Form | `Approval` | How user responds |\n| **Approval Options** | Add buttons | Approve / Reject | Button labels shown |\n| **Free Text \u2192 Button Label** | Text | `Submit Response` | Button text |\n| **Options \u2192 Limit Wait Time** | Toggle + duration | ON, 2 Days | Auto-timeout |\n| **Options \u2192 Append n8n Attribution** | Toggle | OFF for production | Hides \"Sent with n8n\" |\n\n**Response Type: Approval** — Adds Approve/Reject inline buttons. Workflow resumes when user taps.  \n**Response Type: Free Text** — n8n generates a form URL. User opens it and types a response.  \n**Response Type: Custom Form** — You define form fields. n8n generates a form URL.\n\n### Operation: Send Photo\n| Field | Sample | Notes |\n|---|---|---|\n| Chat ID | `{{ $json.chatId }}` | Destination |\n| Binary Property / URL | `data` or `https://...` | Photo source |\n| Caption | `Report for {{ $now.toFormat('dd MMM') }}` | Optional text below photo |\n\n### Telegram Trigger Node\n| Field | Options | What It Does |\n|---|---|---|\n| **Updates** | Message, Edited Message, Callback Query, Inline Query, Channel Post | Which events fire the trigger |\n| **Additional Fields \u2192 Download Images** | Toggle | Auto-download photo attachments |\n\n**Trigger output:**\n```json\n{\n  \"message\": {\n    \"message_id\": 123,\n    \"from\": { \"id\": 456789, \"first_name\": \"Shrinivas\", \"username\": \"shrinivas_r\" },\n    \"chat\": { \"id\": 456789, \"type\": \"private\" },\n    \"text\": \"/ticket My laptop won't boot\",\n    \"date\": 1714456800\n  }\n}\n```\n\n**Access data:**\n```\n{{ $json.message.chat.id }}     → Chat ID (use as Chat ID in send nodes)\n{{ $json.message.from.first_name }}\n{{ $json.message.text }}\n{{ $json.callback_query.data }} → Button data from inline keyboard\n```\n\n**⚠️ Telegram common mistakes:**\n| Mistake | Effect | Fix |\n|---|---|---|\n| Using group Chat ID without `-` sign | Wrong target | Group IDs are negative |\n| Bot not admin in channel | Cannot post | Promote bot to admin |\n| Sending to user who blocked bot | 403 error | Handle with On Error: Continue |\n| HTML tags not closed | Message fails | Always close: `<b>text</b>` |\n\n---\n\n## Messaging App Comparison for n8n Workflows\n\n| Platform | n8n Node | Setup Complexity | Stability | Free? | Best For |\n|---|---|---|---|---|---|\n| **Telegram** | ✅ Built-in | Easy | ⭐⭐⭐⭐⭐ Excellent | ✅ Yes | Notifications, approvals, chatbots |\n| **Slack** | ✅ Built-in | Medium | ⭐⭐⭐⭐ Very good | Freemium | Team notifications, DevOps alerts |\n| **Discord** | ✅ Built-in | Medium | ⭐⭐⭐⭐ Good | ✅ Yes | Community, gaming, dev teams |\n| **WhatsApp Business** | Via HTTP Request | Complex | ⭐⭐⭐ Moderate | ❌ Paid API | Customer communication at scale |\n| **Microsoft Teams** | ✅ Built-in | Medium | ⭐⭐⭐⭐ Good | Microsoft license | Corporate enterprise |\n| **Email (SMTP)** | ✅ Built-in | Easy | ⭐⭐⭐⭐⭐ Excellent | ✅ Yes | Formal, universal |\n\n### Recommendation\n\n**🥇 Telegram** — Best choice for most self-hosted n8n automations:\n- Completely free, no API rate limits for personal use\n- Native n8n node with all features\n- Works as bot, group bot, and channel poster\n- `Send and Wait for Response` built-in (unique feature)\n- Easy to set up (5 minutes via BotFather)\n- Works on all devices, no enterprise plan needed\n\n**🥈 Slack** — Best for team/corporate environments:\n- Rich block-based messages\n- Good for DevOps/engineering teams already using Slack\n- Requires workspace + app setup (20 min)\n\n**🥉 Discord** — Best for community/developer projects:\n- Free\n- Good webhook support\n- More complex bot setup than Telegram\n\n**⚠️ WhatsApp** — Only if your audience is on WhatsApp exclusively:\n- Requires Meta Business verification\n- Paid per message after free tier\n- Complex setup (1-2 hours minimum)\n- Use Telegram instead whenever possible\n\n---\n\n## Discord Node\n\n| Field | Sample | Notes |\n|---|---|---|\n| **Webhook URL** | From Discord Server Settings | Easiest method — no bot token needed |\n| OR **Bot Token** | Discord Developer Portal | For reading messages too |\n| **Channel ID** | Right-click channel → Copy ID | Enable Developer Mode first |\n| **Content** | `Alert: {{ $json.message }}` | Message text |\n| **Embeds** | JSON embed object | Rich formatted messages |\n\n**Quick Discord webhook setup (no bot needed):**\n```\n1. Discord server → channel → Edit Channel → Integrations → Webhooks\n2. New Webhook → copy URL\n3. n8n: HTTP Request node\n   Method: POST\n   URL: (your Discord webhook URL)\n   Body: { \"content\": \"{{ $json.message }}\" }\n```\n
+# Telegram, Messaging Apps & Trigger Comparison
+
+> Author: Shrinivas Ramaprasad | May 2026
+
+---
+
+## Telegram — Complete Node Guide
+
+**Credential setup:** `credentials/02-credentials-guide.md` → Telegram section
+
+### Telegram Node — Resource: Message, Operation: Send Message
+
+| Field | Options | Sample Value | Required | What It Does | If Wrong |
+|---|---|---|---|---|---|
+| Credential | Dropdown | `Telegram - IT Support Bot` | Yes | Auth all API calls | Node fails |
+| Resource | Chat, Callback, File, Message | `Message` | Yes | What to work with | Wrong ops shown |
+| Operation | Send Message, Send Photo, Send Document, Send Audio, Edit, Delete, Pin, Send and Wait | `Send Message` | Yes | Action to perform | Wrong fields |
+| Chat ID | Number or expression | `{{ $json.chatId }}` | Yes | Where to send | `chat_id is empty` |
+| Text | Any text or HTML | `Hello {{ $json.name }}!` | Yes | Message content | Empty message error |
+| Parse Mode | Markdown, HTML, None | `HTML` | No | Text formatting | Plain text if none |
+| Disable Notification | Toggle | OFF | No | Silent message | Notification sent by default |
+| Disable Link Preview | Toggle | OFF | No | Hide URL previews | Previews shown by default |
+| Reply to Message ID | Number | `{{ $json.messageId }}` | No | Thread reply | No thread if empty |
+| Reply Markup | Inline Keyboard, Reply Keyboard | Inline Keyboard | No | Add buttons | No buttons if empty |
+
+Parse Mode HTML sample:
+
+```
+<b>New IT Ticket</b>
+
+<b>From:</b> {{ $json.name }}
+<b>Email:</b> {{ $json.email }}
+<b>Issue:</b> {{ $json.issue }}
+<b>Priority:</b> {{ $json.priority }}
+<b>Ticket ID:</b> #{{ $json.ticketId }}
+
+<a href="{{ $json.ticketUrl }}">View in system</a>
+```
+
+### Operation: Send and Wait for Response
+
+| Field | Options | Sample | What It Does |
+|---|---|---|---|
+| Chat ID | Number | `{{ $json.chatId }}` | Who to send to |
+| Message | Text | `Approve this request?` | Message shown |
+| Response Type | Approval, Free Text, Custom Form | `Approval` | How user responds |
+| Approval Options | Add buttons | Approve / Reject | Button labels |
+| Free Text → Button Label | Text | `Submit Response` | Button text |
+| Options → Limit Wait Time | Toggle + duration | ON, 2 Days | Auto-timeout |
+| Options → Append Attribution | Toggle | OFF | Hides "Sent with n8n" |
+
+- **Approval:** Adds Approve/Reject inline buttons. Workflow resumes when tapped.
+- **Free Text:** n8n generates a form URL. User opens it and types.
+- **Custom Form:** You define fields. n8n hosts the form.
+
+### Operation: Send Photo
+
+| Field | Sample | Notes |
+|---|---|---|
+| Chat ID | `{{ $json.chatId }}` | Destination |
+| Binary Property / URL | `data` or `https://...` | Photo source |
+| Caption | `Report {{ $now.toFormat('dd MMM') }}` | Text below photo |
+
+### Telegram Trigger Node
+
+| Field | Options | What It Does |
+|---|---|---|
+| Updates | Message, Edited Message, Callback Query, Inline Query, Channel Post | Which events fire |
+| Additional Fields → Download Images | Toggle | Auto-download photos |
+
+Trigger output:
+
+```json
+{
+  "message": {
+    "message_id": 123,
+    "from": { "id": 456789, "first_name": "Shrinivas", "username": "shrinivas_r" },
+    "chat": { "id": 456789, "type": "private" },
+    "text": "/ticket My laptop won't boot",
+    "date": 1714456800
+  }
+}
+```
+
+Access data:
+
+```
+{{ $json.message.chat.id }}      → Chat ID (use in Send Message)
+{{ $json.message.from.first_name }}
+{{ $json.message.text }}
+{{ $json.callback_query.data }}  → Button data from inline keyboard
+```
+
+**⚠️ Common Telegram mistakes:**
+
+| Mistake | Effect | Fix |
+|---|---|---|
+| Group Chat ID without negative sign | Wrong target | Group IDs are negative numbers |
+| Bot not admin in channel | Cannot post | Channel Settings → Admins → add bot |
+| Sending to user who blocked bot | 403 error | Handle with On Error: Continue |
+| HTML tags not closed | Message fails | Always close: `<b>text</b>` |
+| Bot not added to group | No messages | Add bot as member |
+
+---
+
+## Messaging App Comparison
+
+| Platform | n8n Node | Setup | Stability | Free? | Best For |
+|---|---|---|---|---|---|
+| **Telegram** | ✅ Built-in | 5 min | ⭐⭐⭐⭐⭐ | ✅ Yes | Personal, small team, bots |
+| **Slack** | ✅ Built-in | 20 min | ⭐⭐⭐⭐ | Freemium | Corporate teams |
+| **Discord** | ✅ Built-in | 15 min | ⭐⭐⭐⭐ | ✅ Yes | Dev communities |
+| **WhatsApp Business** | Via HTTP | Complex | ⭐⭐⭐ | ❌ Paid | Customer comms |
+| **Microsoft Teams** | ✅ Built-in | Medium | ⭐⭐⭐⭐ | MS license | Enterprise |
+| **Email (SMTP)** | ✅ Built-in | Easy | ⭐⭐⭐⭐⭐ | ✅ Yes | Formal, universal |
+
+### Recommendation
+
+**🥇 Telegram** — Best for most self-hosted n8n automations:
+- Free forever
+- Works without ngrok (polling mode)
+- `Send and Wait for Response` built-in (approvals)
+- 5-minute setup via BotFather
+- Works on all devices
+
+**🥈 Slack** — Best if team already uses Slack for work.
+
+**⚠️ WhatsApp** — Only if your audience specifically requires it. Complex Meta verification, per-message costs.
+
+---
+
+## Discord Node
+
+Quick webhook method (no bot token needed):
+
+```
+1. Discord server → channel → Edit Channel → Integrations → Webhooks
+2. New Webhook → copy URL
+3. n8n: HTTP Request node
+   Method: POST
+   URL: (your Discord webhook URL)
+   Body:
+   {
+     "content": "{{ $json.message }}",
+     "username": "n8n Bot"
+   }
+```
+
+Rich embed:
+
+```json
+{
+  "embeds": [{
+    "title": "{{ $json.title }}",
+    "description": "{{ $json.description }}",
+    "color": 3066993
+  }]
+}
+```
