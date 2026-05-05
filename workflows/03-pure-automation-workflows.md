@@ -1,584 +1,543 @@
-# Pure Automation Workflows — No AI Required
+# Pure Automation Workflows — No AI Agent Required
 
-> **Author:** Shrinivas Ramaprasad | **Updated:** May 2026
-> All workflows here use only triggers, core nodes, and app integrations.
-> AI is optional and always has a free/open-source fallback noted.
-
----
-
-## Why Pure Automation First?
-
-Before reaching for an AI agent, ask: can a simple rule or formula do this?
-
-| Situation | Use AI? | Better approach |
-|---|---|---|
-| Route tickets by keyword | ❌ No | If / Switch node with text match |
-| Score leads by title + years | ❌ No | Code node with numeric rules |
-| Summarise a 50-page document | ✅ Yes | LLM is the right tool |
-| Send a daily report | ❌ No | Schedule + Sheets + Code |
-| Classify email as spam/lead | Maybe | Code rules first; AI if accuracy poor |
-
-**Rule:** Pure automation is faster, cheaper, more predictable, and easier to debug.
+> Author: Shrinivas Ramaprasad | May 2026
+> All workflows use only Triggers, Core Nodes, and App Integrations.
+> AI is optional where noted — always with a free/open-source fallback.
+> Importable JSON files: `workflows/json/`
 
 ---
 
-## How to Use These Workflows
+## Why Pure Automation?
 
-1. Read the node-by-node explanation below
-2. Import the JSON from `workflows/json/` (see `HOW-TO-IMPORT.md`)
-3. Replace credential placeholders with your saved credentials
-4. Test with Execute Workflow (Manual Trigger mode)
-5. Activate when confirmed working
+- **Faster execution** — no LLM API call latency
+- **No API costs** — completely free to run
+- **More reliable** — no hallucination risk
+- **Easier to debug** — deterministic output every time
+- **Better for production** — rule-based logic is predictable
+
+Use AI only when the task genuinely requires language understanding. Everything else: pure automation.
 
 ---
 
-## Workflow 1 — IT Telegram Ticket Bot
+## Workflow 1 — IT Support Telegram Ticket Bot
 
+**Trigger:** Telegram message starting with `/ticket`
+**Use case:** Your actual ITSM workflow — users raise tickets via Telegram bot
 **Import file:** `workflows/json/01-it-telegram-ticket-bot.json`
 
-### What it does
+### Step-by-Step Node Build
 
-Users send `/ticket <describe issue>` to your Telegram bot. The workflow:
-1. Detects the `/ticket` command
-2. Creates a ticket record with ID, user, issue, timestamp
-3. Logs to Google Sheets
-4. Notifies `#it-support` on Slack
-5. Replies to user with ticket ID and expected response time
-6. For unknown messages, sends a help reply
-
-### Requirements
-
-| Credential | How to get |
-|---|---|
-| Telegram Bot Token | @BotFather → /newbot → copy token |
-| Google Sheets OAuth2 | n8n Settings → Credentials → Google Sheets → Sign in |
-| Slack Bot Token | api.slack.com/apps → create app → copy xoxb- token |
-
-### Node-by-Node Explanation
-
-#### Node 1: Telegram Trigger
 ```
-Type: Telegram Trigger
-Credential: your Telegram bot credential
-Updates: Message
-Why: Fires every time anyone sends your bot a message.
-     Works in POLLING mode — no ngrok or public URL needed.
-     n8n checks Telegram every 3 seconds.
-Output fields used:
-  {{ $json.message.chat.id }}        → where to reply
-  {{ $json.message.from.first_name }} → sender's name
-  {{ $json.message.text }}            → the full message text
-```
+Node 1: Telegram Trigger
+  Updates: Message
+  → Fires every time someone messages your bot
 
-#### Node 2: If — Is it a /ticket command?
-```
-Type: If
-Condition:
-  Value 1: {{ $json.message.text }}
-  Operation: Starts With
-  Value 2: /ticket
-Why: We only process messages that start with /ticket.
-     All other messages go to the false output (help reply).
-True output (0):  process the ticket
-False output (1): send help message
-```
+Node 2: If — Is it a /ticket command?
+  Condition: {{ $json.message.text }} starts with /ticket
+  [True] → continue
+  [False] → Node 10 (send help message)
 
-#### Node 3: Edit Fields — Build Ticket Object
-```
-Type: Edit Fields (Set)
-Mode: Manual
-Fields to set:
-  ticketId:    TICK-{{ $now.toMillis() }}
-               Why: millisecond timestamp = guaranteed unique ID
-  user:        {{ $json.message.from.first_name }}
-  chatId:      {{ $json.message.chat.id }}
-               Why: save this now — needed for the reply later
-  issue:       {{ $json.message.text.replace('/ticket ', '') }}
-               Why: remove the command prefix, keep just the issue text
-  status:      Open
-  createdAt:   {{ $now.toFormat('dd/MM/yyyy HH:mm') }}
-  priority:    Medium
-               Why: default; can be changed in Sheets or by the agent
-```
+Node 3: Edit Fields — Build ticket object
+  ticketId:   TICK-{{ $now.toMillis() }}
+  userName:   {{ $json.message.from.first_name }}
+  userId:     {{ $json.message.from.id }}
+  chatId:     {{ $json.message.chat.id }}
+  issue:      {{ $json.message.text.replace('/ticket ', '') }}
+  status:     Open
+  priority:   Medium
+  createdAt:  {{ $now.toFormat('dd/MM/yyyy HH:mm') }}
+  source:     Telegram
 
-#### Node 4: Google Sheets — Log Ticket
-```
-Type: Google Sheets
-Operation: Append Row
-Spreadsheet: your IT tracker spreadsheet URL
-Sheet: Tickets
-Column mappings:
-  Ticket ID  → {{ $json.ticketId }}
-  User       → {{ $json.user }}
-  Issue      → {{ $json.issue }}
-  Status     → {{ $json.status }}
-  Priority   → {{ $json.priority }}
-  Created At → {{ $json.createdAt }}
-  Resolved At → (leave empty)
-Why: Creates a permanent audit trail. Can filter/sort in Sheets.
-Setup: Create the spreadsheet first with these exact column headers in row 1.
+Node 4: Google Sheets — Append Row
+  Spreadsheet: IT Support Tracker (your sheet URL)
+  Sheet: Tickets
+  Columns (map each):
+    Ticket ID   → {{ $json.ticketId }}
+    User Name   → {{ $json.userName }}
+    Chat ID     → {{ $json.chatId }}
+    Issue       → {{ $json.issue }}
+    Status      → {{ $json.status }}
+    Priority    → {{ $json.priority }}
+    Created At  → {{ $json.createdAt }}
+    Source      → {{ $json.source }}
+  WHY: Creates a permanent audit trail viewable by anyone
+
+Node 5: Slack — Send Message
+  Channel: #it-support
+  Text:
+  🎫 *New IT Ticket*
+  *ID:* {{ $json.ticketId }}
+  *From:* {{ $json.userName }}
+  *Issue:* {{ $json.issue }}
+  *Time:* {{ $json.createdAt }}
+  WHY: Notifies the IT team in real time
+
+Node 6: Telegram — Send Message (confirmation to user)
+  Chat ID: {{ $json.chatId }}
+  Text:
+  ✅ Your ticket has been created!
+
+  🎫 *Ticket ID:* {{ $json.ticketId }}
+  📝 *Issue:* {{ $json.issue }}
+  ⏱ *Created:* {{ $json.createdAt }}
+
+  We'll get back to you shortly.
+  Parse Mode: Markdown
+
+Node 10: Telegram — Send Help (false branch)
+  Chat ID: {{ $json.message.chat.id }}
+  Text: To create a ticket, use:
+  /ticket describe your issue here
+  Example: /ticket My laptop won't connect to VPN
 ```
 
-#### Node 5: Slack — Notify #it-support
+### Google Sheets Setup
+
 ```
-Type: Slack
-Operation: Send Message
-Channel: #it-support
-Message:
-  *New IT Ticket*
-  Ticket ID: {{ $json.ticketId }}
-  From: {{ $json.user }}
-  Issue: {{ $json.issue }}
-  Created: {{ $json.createdAt }}
-Why: Alerts the IT team in real time.
-Note: Bot must be /invite'd to #it-support channel first.
+1. Create a new Google Sheet named: IT Support Tracker
+2. Add header row (Row 1):
+   A: Ticket ID | B: User Name | C: Chat ID | D: Issue
+   E: Status    | F: Priority  | G: Created At | H: Source
+3. Share sheet with your team
+4. Copy the sheet URL and paste into Node 4
 ```
 
-#### Node 6: Telegram — Reply to User
-```
-Type: Telegram
-Operation: Send Message
-Chat ID: {{ $json.chatId }}
-Text (HTML):
-  <b>Ticket Created</b>
-  ID: <code>{{ $json.ticketId }}</code>
-  Issue: {{ $json.issue }}
-  Expected response: within 4 business hours.
-Parse Mode: HTML
-Why: Confirms to the user that their request was received.
-```
+### How to Test
 
-#### Node 7: Telegram — Send Help (False branch)
 ```
-Type: Telegram
-Operation: Send Message
-Chat ID: {{ $json.message.chat.id }}
-Text:
-  Send me your IT issue using:
-  /ticket <describe your issue>
-  Example: /ticket My VPN won't connect
-Why: Guides users who send random messages.
-```
-
-### Testing
-```
-1. Start workflow (it activates polling mode)
-2. Open Telegram → send to your bot: /ticket My laptop screen is flickering
-3. Expected: ticket appears in Google Sheets, Slack notification, Telegram reply
-4. Also test: send "hello" → should get help message
+1. Start workflow → click Listen for test event
+2. Open Telegram → message your bot: /ticket My screen is broken
+3. n8n captures the data → check each node output
+4. Verify: row added to Google Sheets, Slack message sent
+5. Activate workflow when satisfied
 ```
 
 ---
 
-## Workflow 2 — Daily Morning Briefing
+## Workflow 2 — Daily ITAM / Status Report
 
+**Trigger:** Schedule — every day at 9:00 AM IST
+**Use case:** Morning briefing covering open tickets, ITAM alerts, pending actions
 **Import file:** `workflows/json/02-daily-morning-briefing.json`
 
-### What it does
+### Step-by-Step Node Build
 
-Every weekday at 9 AM (IST), fetches open tasks from a Google Sheet and sends a structured briefing to Telegram and email.
-
-### Requirements
-
-| Credential | Source |
-|---|---|
-| Google Sheets OAuth2 | As above |
-| Telegram Bot Token | As above |
-| Gmail / SMTP | Settings → SMTP or Google OAuth2 |
-
-### Node-by-Node Explanation
-
-#### Node 1: Schedule Trigger
 ```
-Type: Schedule Trigger
-Trigger Interval: Custom (Cron)
-Cron Expression: 0 9 * * 1-5
-  0 = minute 0
-  9 = hour 9 (9 AM)
-  * = any day of month
-  * = any month
-  1-5 = Monday to Friday
-Timezone (Add Option): Asia/Kolkata
-Why timezone: Without this, "9" means 9 AM UTC = 2:30 PM IST.
-               Always set timezone explicitly.
+Node 1: Schedule Trigger
+  Trigger Interval: Every Day
+  Hour: 9 | Minute: 0
+  Timezone: Asia/Kolkata
+  WHY: You start the day with full situational awareness
+
+Node 2: Google Sheets — Read Rows (Open Tickets)
+  Sheet: IT Support Tracker → Tickets tab
+  Filter: Column = Status | Value = Open
+  WHY: Get count and details of unresolved tickets
+
+Node 3: Google Sheets — Read Rows (Pending Actions)
+  Sheet: ITAM Tracker → Assets tab
+  Filter: Column = Action Required | Value = Yes
+  WHY: Surface any asset-level items needing attention
+
+Node 4: Code Node (Run Once for All Items) — Compile Report
 ```
 
-#### Node 2: Google Sheets — Read Open Tasks
-```
-Type: Google Sheets
-Operation: Read Rows
-Spreadsheet: your daily tasks spreadsheet
-Sheet: Tasks
-Filters:
-  Column: Status
-  Value: Open
-Return All Matching: ON
-Why: Only gets incomplete tasks. Completed ones are ignored.
-```
-
-#### Node 3: Code — Build Briefing Report
 ```javascript
-// Type: Code | Mode: Run Once for All Items
+// Node 4 Code — Compile Daily Report
 const items = $input.all();
-const today = new Date().toLocaleDateString('en-IN', {
+
+// Separate ticket and asset data by source field added in Edit Fields
+// (Add Edit Fields after each Sheets node to tag source)
+const tickets = items.filter(i => i.json._source === 'tickets');
+const assets  = items.filter(i => i.json._source === 'assets');
+
+const date = new Date().toLocaleDateString('en-IN', {
   timeZone: 'Asia/Kolkata',
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric'
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
 });
 
-// Separate by priority
-const high = items.filter(i => i.json.Priority === 'High');
-const medium = items.filter(i => i.json.Priority === 'Medium');
-const low = items.filter(i => i.json.Priority === 'Low');
+const critical = tickets.filter(t => t.json.Priority === 'Critical').length;
+const high     = tickets.filter(t => t.json.Priority === 'High').length;
+const medium   = tickets.filter(t => t.json.Priority === 'Medium').length;
+const assetAlerts = assets.length;
 
-const formatList = (arr) =>
-  arr.length === 0
-    ? '  None'
-    : arr.map(i => `  - ${i.json.Task} (Due: ${i.json['Due Date'] || 'TBD'})`).join('\n');
+const report =
+  `📊 *Daily IT Status — ${date}*\n\n` +
+  `🎫 *Open Tickets: ${tickets.length}*\n` +
+  `  🔴 Critical: ${critical}\n` +
+  `  🟠 High: ${high}\n` +
+  `  🟡 Medium: ${medium}\n\n` +
+  `🖥️ *ITAM Alerts: ${assetAlerts}*\n\n` +
+  (tickets.length === 0 ? '✅ All clear! No open tickets.' : '');
 
-const telegramText =
-  `Good morning! Here is your briefing for ${today}\n\n` +
-  `Total open tasks: ${items.length}\n\n` +
-  `HIGH PRIORITY (${high.length})\n${formatList(high)}\n\n` +
-  `MEDIUM PRIORITY (${medium.length})\n${formatList(medium)}\n\n` +
-  `LOW PRIORITY (${low.length})\n${formatList(low)}`;
-
-const htmlEmail =
-  `<h2>Morning Briefing — ${today}</h2>` +
-  `<p><strong>Total open tasks:</strong> ${items.length}</p>` +
-  `<h3>High Priority (${high.length})</h3>` +
-  (high.length ? `<ul>${high.map(i => `<li>${i.json.Task}</li>`).join('')}</ul>` : '<p>None</p>') +
-  `<h3>Medium Priority (${medium.length})</h3>` +
-  (medium.length ? `<ul>${medium.map(i => `<li>${i.json.Task}</li>`).join('')}</ul>` : '<p>None</p>');
-
-return [{ json: { telegramText, htmlEmail, taskCount: items.length, date: today } }];
+return [{ json: { report, ticketCount: tickets.length, assetAlerts } }];
 ```
 
-#### Node 4: Telegram — Send Briefing
 ```
-Type: Telegram
-Operation: Send Message
-Chat ID: YOUR_PERSONAL_CHAT_ID
-Text: {{ $json.telegramText }}
-Parse Mode: None (plain text)
-Why: Personal morning briefing directly in Telegram.
-```
+Node 5: Telegram — Send Message
+  Chat ID: your-personal-chat-id
+  Text: {{ $json.report }}
+  Parse Mode: Markdown
 
-#### Node 5: Gmail — Send Email Briefing
-```
-Type: Gmail (or Send Email)
-Operation: Send
-To: shrinivas@example.com
-Subject: Daily Briefing — {{ $json.date }}
-Email Format: HTML
-Message: {{ $json.htmlEmail }}
-Why: Email version is more readable and archivable.
-     Can be forwarded or referenced later.
+Node 6: Gmail — Send Email (optional)
+  To: your@email.com
+  Subject: Daily IT Status — {{ $now.toFormat('dd MMM yyyy') }}
+  Format: HTML
+  Message: <pre>{{ $json.report }}</pre>
 ```
 
 ---
 
-## Workflow 3 — n8n Workflow Backup to GitHub
+## Workflow 3 — CareerForge Lead Qualifier
 
-**Import file:** `workflows/json/03-n8n-backup-to-github.json`  
-**Full guide:** [`workflows/01-save-workflows-to-github.md`](./01-save-workflows-to-github.md)
-
-### What it does
-
-Every night at 2 AM, exports all n8n workflows as JSON and commits them to a private GitHub repo.
-
-### Requirements
-
-| Credential | How to get |
-|---|---|
-| GitHub PAT | github.com → Settings → Fine-grained PAT → Contents: Read+Write |
-| n8n API Key | n8n Settings → n8n API → Enable → Create key |
-| Telegram Bot Token | For completion notification |
-
-### Node Summary
-```
-Schedule (2 AM) → HTTP Request (n8n API, get all workflows)
-→ Edit Fields (extract data[]) → Split Out (one item per workflow)
-→ Loop Over Items
-    → Code (build filename + base64 content)
-    → GitHub: Get File (check if exists, On Error: Continue)
-    → If (file.sha exists?)
-        YES → GitHub: Edit File (with SHA)
-        NO  → GitHub: Create File
-→ Loop Done → Code (count results) → Telegram
-```
-
-**Key step — why SHA is needed for Edit:**
-GitHub API requires the current file's SHA hash when updating. Without it, the API returns 409 Conflict. Get it from the Get File response: `{{ $json.sha }}`
-
----
-
-## Workflow 4 — CareerForge Lead Qualifier
-
+**Trigger:** Webhook (from CareerForge website form) or n8n Form
+**Use case:** Score inbound leads automatically, route to right follow-up
 **Import file:** `workflows/json/04-careerforge-lead-qualifier.json`
 
-### What it does
+### Step-by-Step Node Build
 
-New lead submits a form (or webhook from website). The workflow:
-1. Normalises input data
-2. Scores the lead using rule-based logic (no AI needed)
-3. Routes by tier: Hot / Warm / Cold
-4. Hot leads: immediate Telegram alert + Gmail
-5. Warm leads: add to email sequence
-6. All leads: append to Google Sheets CRM
+```
+Node 1: Webhook Trigger
+  Path: careerforge-lead
+  Method: POST
+  Auth: Header Auth (X-CF-Secret)
+  WHY: Form on your website POSTs here when someone signs up
 
-### Lead Scoring Logic (Pure Rules, No AI)
+Node 2: Edit Fields — Normalise data
+  name:       {{ $json.body.name || $json.body.fullName }}
+  email:      {{ $json.body.email.toLowerCase().trim() }}
+  phone:      {{ $json.body.phone }}
+  jobTitle:   {{ $json.body.jobTitle }}
+  experience: {{ $json.body.yearsExperience }}
+  location:   {{ $json.body.location }}
+  painPoint:  {{ $json.body.painPoint || $json.body.message }}
+  submittedAt: {{ $now.toISO() }}
+
+Node 3: Code Node — Score the Lead (No AI)
+```
 
 ```javascript
-// Code Node — scores lead without any AI
+// Node 3 — Rule-based lead scoring
 const lead = $json;
 let score = 0;
 
-// 1. Seniority (0–30 points)
+// Job seniority (max 30 pts)
 const title = (lead.jobTitle || '').toLowerCase();
-if (/director|vp|head|chief|cxo/.test(title)) score += 30;
-else if (/manager|lead|principal/.test(title)) score += 20;
-else if (/senior|architect|specialist/.test(title)) score += 15;
+if (/director|vp|head of|chief/.test(title))   score += 30;
+else if (/manager|lead|architect/.test(title)) score += 20;
+else if (/senior|specialist/.test(title))      score += 15;
+else                                             score += 5;
+
+// Experience (max 25 pts)
+const yrs = parseInt(lead.experience) || 0;
+if (yrs >= 10) score += 25;
+else if (yrs >= 5) score += 15;
+else if (yrs >= 2) score += 8;
+
+// Location — UAE/GCC is target market (max 25 pts)
+const loc = (lead.location || '').toLowerCase();
+if (/uae|dubai|abu dhabi|doha|riyadh|gcc|qatar|bahrain|kuwait/.test(loc)) score += 25;
+else if (/india|chennai|bangalore|mumbai/.test(loc)) score += 15;
 else score += 5;
 
-// 2. Experience (0–25 points)
-const years = parseInt(lead.yearsExperience) || 0;
-if (years >= 10) score += 25;
-else if (years >= 5) score += 15;
-else if (years >= 2) score += 8;
-
-// 3. Pain point match (0–20 points)
-const pain = (lead.painPoint || lead.message || '').toLowerCase();
-if (/job search|new role|salary|promotion|switch/.test(pain)) score += 20;
-else if (/skill|upskill|certif|ai|cloud/.test(pain)) score += 12;
-else score += 3;
-
-// 4. Geography — target market (0–25 points)
-const region = (lead.location || lead.country || '').toLowerCase();
-if (/uae|dubai|abu dhabi|gcc|qatar|saudi|bahrain|kuwait|oman/.test(region)) score += 25;
-else if (/india|mumbai|bangalore|chennai|hyderabad|pune|delhi/.test(region)) score += 15;
+// Pain point relevance (max 20 pts)
+const pain = (lead.painPoint || '').toLowerCase();
+if (/job|salary|offer|career change/.test(pain)) score += 20;
+else if (/skill|upskill|certif|learn/.test(pain)) score += 10;
 else score += 5;
 
 const tier = score >= 80 ? 'Hot' : score >= 50 ? 'Warm' : 'Cold';
-return [{ json: { ...lead, score, tier, qualifiedAt: new Date().toISOString() } }];
+
+return [{ json: { ...lead, score, tier } }];
 ```
 
-### Switch Node — Route by Tier
 ```
-Mode: Rules
-Routing field: {{ $json.tier }}
-  Rule 1: equals Hot   → Output 0
-  Rule 2: equals Warm  → Output 1
-  Rule 3: equals Cold  → Output 2
-```
+Node 4: Switch — Route by Tier
+  Routing Field: {{ $json.tier }}
+  Rule 1: equals Hot  → Output 0
+  Rule 2: equals Warm → Output 1
+  Fallback (Cold)     → Output 2
 
-### Hot Lead Actions
-```
-Telegram:
-  HOT LEAD — Score: {{ $json.score }}/100
-  Name: {{ $json.name }}
-  Title: {{ $json.jobTitle }}
-  Location: {{ $json.location }}
-  Issue: {{ $json.painPoint }}
-  Form: {{ $json.submittedAt }}
+[Hot branch — Output 0]
+  Node 5a: HubSpot — Create/Update Contact
+    Properties: firstname, lastname, email, jobtitle, phone
+    CF properties: cf_score, cf_tier, cf_pain_point
+  Node 6a: Telegram — Alert to you immediately
+    Text: 🔥 HOT LEAD!
+    Name: {{ $json.name }} | Score: {{ $json.score }}
+    Title: {{ $json.jobTitle }} | Location: {{ $json.location }}
+    Email: {{ $json.email }}
+  Node 7a: Gmail — Send personalised intro email
 
-Gmail:
-  Subject: CareerForge — New Hot Lead: {{ $json.name }}
-  Body: personalised intro offering a free call
-```
+[Warm branch — Output 1]
+  Node 5b: HubSpot — Create/Update Contact
+  Node 6b: HubSpot — Enrol in email sequence
 
-### Google Sheets — Log All Leads
-```
-Operation: Append or Update Row
-Match column: email
-Columns: Name | Email | Title | Company | Location | Score | Tier | Pain Point | Date
+[Cold branch — Output 2]
+  Node 5c: HubSpot — Create Contact (low priority)
+  → No immediate alert, nurture sequence only
 ```
 
 ---
 
-## Workflow 5 — Gmail to Application Tracker
+## Workflow 4 — n8n Workflow Auto-Backup to GitHub
 
+**Trigger:** Schedule — daily at 2:00 AM IST
+**Use case:** Never lose a workflow — every workflow backed up to private GitHub repo
+**Import file:** `workflows/json/03-n8n-backup-to-github.json`
+
+Full step-by-step guide: `workflows/01-save-workflows-to-github.md`
+
+```
+Node 1: Schedule Trigger (2 AM daily)
+Node 2: HTTP Request — GET all workflows (n8n API)
+Node 3: Edit Fields — extract data array
+Node 4: Split Out — one item per workflow
+Node 5: Code — sanitise filename + base64 encode JSON
+Node 6: GitHub — Get File (check if exists, On Error: Continue)
+Node 7: Code — extract SHA or null
+Node 8: If — file exists?
+  [YES] → GitHub Edit (with SHA)
+  [NO]  → GitHub Create
+Node 9: Merge
+Node 10: Code — compile summary
+Node 11: Telegram — send backup report
+```
+
+---
+
+## Workflow 5 — Gmail Application Tracker
+
+**Trigger:** Gmail Trigger — new email in INBOX from recruiters
+**Use case:** Track every job application automatically — no manual logging
 **Import file:** `workflows/json/05-gmail-application-tracker.json`
 
-### What it does
+### Step-by-Step Node Build
 
-When a job application confirmation or recruiter reply arrives in Gmail, it is automatically logged to a Google Sheet tracker. Duplicate submissions (same email sender) update the existing row rather than creating a new one.
-
-### Node-by-Node
-
-#### Node 1: Gmail Trigger
 ```
-Trigger On: New Email
-Label/Folder: INBOX
-Read Status: Unread only
-Filters — Subject Contains: application OR interview OR recruiter OR shortlist
-Why: Only process job-related emails, not everything.
-     Adjust the subject filter to match what you actually receive.
-```
+Node 1: Gmail Trigger
+  Trigger On: New Email
+  Label: INBOX
+  Read Status: Unread only
+  Poll Every: 1 Minute
+  WHY: Catches recruiter replies, application confirmations automatically
 
-#### Node 2: Edit Fields — Extract Data
-```
-senderEmail:   {{ $json.from.match(/<(.+)>/) ? $json.from.match(/<(.+)>/)[1] : $json.from }}
-               Why: Extracts clean email from "Name <email>" format
-senderName:    {{ $json.from.split('<')[0].trim().replace(/"/g, '') }}
-subjectLine:   {{ $json.subject }}
-receivedDate:  {{ $now.toFormat('dd/MM/yyyy') }}
-snippet:       {{ $json.snippet }}
-emailId:       {{ $json.id }}
+Node 2: Filter — Skip internal emails
+  Condition: {{ $json.from }} does not contain @yourcompany.com
+  WHY: Avoid logging internal mail as job applications
+
+Node 3: Code — Extract Application Data
 ```
 
-#### Node 3: Code — Detect Stage
 ```javascript
-// Classify email stage without AI
-const subject = ($json.subjectLine || '').toLowerCase();
-const body = ($json.snippet || '').toLowerCase();
-const combined = subject + ' ' + body;
+// Detect application-related emails
+const subject = ($json.subject || '').toLowerCase();
+const from = ($json.from || '').toLowerCase();
+const body = ($json.text || $json.snippet || '').toLowerCase();
 
-let stage = 'New Contact';
-if (/interview|schedule|meet|call/.test(combined)) stage = 'Interview';
-else if (/offer|selected|congratulations|pleased to/.test(combined)) stage = 'Offer';
-else if (/regret|unfortunately|not moving|not selected/.test(combined)) stage = 'Rejected';
-else if (/application received|thank you for applying/.test(combined)) stage = 'Applied';
-else if (/recruiter|opportunities|open roles/.test(combined)) stage = 'Recruiter Outreach';
+// Keywords that indicate job application activity
+const appKeywords = [
+  'application', 'applied', 'interview', 'position', 'role',
+  'opportunity', 'cv', 'resume', 'shortlist', 'assessment'
+];
+const isJobRelated = appKeywords.some(k => subject.includes(k) || body.includes(k));
 
-return [{ json: { ...$json, stage } }];
+if (!isJobRelated) return [];  // Skip non-job emails
+
+// Extract company name from sender domain
+const emailMatch = from.match(/@([\w.-]+\.\w+)/);
+const domain = emailMatch ? emailMatch[1] : 'Unknown';
+const company = domain.split('.')[0].replace(/^(mail|noreply|careers|jobs)/, '').trim();
+
+// Detect stage from keywords
+let stage = 'Applied';
+if (/interview|schedule|invite/.test(subject + body)) stage = 'Interview Scheduled';
+else if (/shortlist|shortlisted/.test(subject + body)) stage = 'Shortlisted';
+else if (/offer/.test(subject + body)) stage = 'Offer';
+else if (/regret|unsuccessful|not moving|not proceed/.test(subject + body)) stage = 'Rejected';
+
+return [{
+  json: {
+    emailId: $json.id,
+    company: company.charAt(0).toUpperCase() + company.slice(1),
+    subject: $json.subject,
+    from: $json.from,
+    stage,
+    emailDate: $json.date,
+    loggedAt: new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })
+  }
+}];
 ```
 
-#### Node 4: Google Sheets — Append or Update
 ```
-Operation: Append or Update Row
-Match Column: Sender Email
-Match Value: {{ $json.senderEmail }}
-Columns:
-  Sender Name  → {{ $json.senderName }}
-  Sender Email → {{ $json.senderEmail }}
-  Subject      → {{ $json.subjectLine }}
-  Stage        → {{ $json.stage }}
-  Last Updated → {{ $json.receivedDate }}
-  Notes        → {{ $json.snippet }}
-Why: If same sender emails again, it updates the row (tracks progression).
-     New sender creates a new row.
-```
+Node 4: Google Sheets — Append or Update Row
+  Sheet: Job Applications
+  Match Column: emailId
+  WHY: Prevents duplicate rows if email is processed twice
+  Column mappings:
+    Email ID   → {{ $json.emailId }}
+    Company    → {{ $json.company }}
+    Subject    → {{ $json.subject }}
+    From       → {{ $json.from }}
+    Stage      → {{ $json.stage }}
+    Date       → {{ $json.emailDate }}
+    Logged At  → {{ $json.loggedAt }}
 
-#### Node 5: Gmail — Add Label
-```
-Operation: Add Label
-Email ID: {{ $json.emailId }}
-Label: n8n-logged
-Why: Marks email as processed. Prevents re-processing on next trigger run.
-     Create the label manually in Gmail first.
-```
-
-#### Node 6: Telegram — Notify
-```
-Text:
-  Job Tracker Updated
-  Stage: {{ $json.stage }}
-  From: {{ $json.senderName }}
-  Subject: {{ $json.subjectLine }}
-Why: Real-time awareness of job search activity.
+Node 5: Telegram — Notify (only for important stages)
+  If: stage is Interview Scheduled OR Offer
+  Text:
+  📬 *Application Update*
+  🏢 {{ $json.company }}
+  📋 {{ $json.stage }}
+  📧 {{ $json.subject }}
 ```
 
 ---
 
 ## Workflow 6 — ServiceNow Incident Monitor
 
-> No JSON template — ServiceNow URL and auth varies per instance.
-> Build this yourself using the steps below.
+**Trigger:** Schedule — every 15 minutes
+**Use case:** Monitor ServiceNow for critical incidents and alert immediately
+**Note:** Uses HTTP Request node — no native ServiceNow n8n node needed
 
-### What it does
+### Step-by-Step Node Build
 
-Every 15 minutes, checks ServiceNow for newly opened P1/P2 incidents assigned to your team. Sends Telegram alert for new ones and logs to Google Sheets.
-
-### Node Structure
 ```
-Schedule Trigger (every 15 min)
-    ↓
-HTTP Request (ServiceNow REST API)
-    ↓
-Code (filter new incidents since last run)
-    ↓
-If (any new incidents?)
-    ↓ YES
-    Split Out (one item per incident)
-    ↓
-    Loop Over Items
-      → Telegram (alert per incident)
-      → Google Sheets (log)
-    ↓ NO
-    No Operation (stop gracefully)
-```
+Node 1: Schedule Trigger
+  Every: 15 Minutes
+  WHY: Near-real-time monitoring without webhook dependency
 
-### HTTP Request — ServiceNow API
-```
-Method: GET
-URL:
-  https://your-instance.service-now.com/api/now/table/incident
-  ?sysparm_query=opened_at>javascript:gs.beginningOfLast15Minutes()
-  ^assignment_group=YOUR_GROUP_SYS_ID
-  ^priority<=2
-  ^stateNOT IN6
-  &sysparm_fields=number,short_description,priority,assigned_to,opened_at,state
-  &sysparm_limit=50
-Authentication: Basic Auth
-  Username: your ServiceNow username
-  Password: your ServiceNow password or API token
+Node 2: HTTP Request — Query ServiceNow Incidents
+  Method: GET
+  URL: https://your-instance.service-now.com/api/now/table/incident
+  Authentication: Basic Auth (ServiceNow user)
+  Query Parameters:
+    sysparm_query: priority=1^state!=6^sys_created_onONLast 15 minutes
+    sysparm_fields: number,short_description,priority,state,assigned_to,sys_created_on
+    sysparm_limit: 20
+
+Node 3: Filter — Only unassigned or P1/P2
+  Condition: {{ $json.priority }} less than or equal to 2
+
+Node 4: If — Any incidents found?
+  Condition: {{ $input.all().length }} greater than 0
+  [YES] → Node 5
+  [NO]  → No Operation
+
+Node 5: Code — Format Alert
 ```
 
-### Telegram Alert Format
+```javascript
+const incidents = $input.all();
+const lines = incidents.map(i => {
+  const pri = i.json.priority === '1' ? '🔴 P1' : '🟠 P2';
+  const assigned = i.json.assigned_to?.display_value || 'Unassigned';
+  return `${pri} [${i.json.number}] ${i.json.short_description}\nAssigned: ${assigned}`;
+}).join('\n\n');
+
+return [{
+  json: {
+    message: `⚠️ *${incidents.length} Critical Incident(s)*\n\n${lines}`,
+    count: incidents.length
+  }
+}];
 ```
-SERVICENOW ALERT — {{ $now.toFormat('HH:mm dd MMM') }}
 
-Incident: {{ $json.number }}
-Priority: P{{ $json.priority }}
-Description: {{ $json.short_description }}
-Assigned to: {{ $json.assigned_to.display_value }}
-Opened at: {{ $json.opened_at }}
+```
+Node 6: Telegram — Send Alert
+  Chat ID: your-itam-group-chat-id
+  Text: {{ $json.message }}
+  Parse Mode: Markdown
 
-View: https://your-instance.service-now.com/nav_to.do?uri=incident.do?sysparm_query=number={{ $json.number }}
+Node 7: Slack — Post to #incidents (optional parallel)
+  Channel: #it-incidents
+  Text: {{ $json.message }}
 ```
 
 ---
 
 ## Workflow 7 — Recruiter Outreach Tracker (SPARK)
 
-> Based on your SPARK methodology for LinkedIn recruiter outreach.
+**Trigger:** Manual (run when you want to do a batch outreach)
+**Use case:** Track your LinkedIn recruiter outreach — who contacted, status, follow-ups
 
-### What it does
+### Step-by-Step Node Build
 
-Reads a Google Sheet of recruiters to contact. For each new contact (status = Pending), sends a personalised connection message draft to a Telegram message for review, then marks as Sent in Sheets.
-
-### Node Structure
 ```
-Manual Trigger (or Schedule, weekly Monday 9 AM)
-    ↓
-Google Sheets: Read Rows (Status = Pending)
-    ↓
-Filter: keep rows with outreach_count < 3 (max 3 touches)
-    ↓
-Loop Over Items (batch: 5)
-    ↓
-  Code: build SPARK message
-  Telegram: Send and Wait (Approve / Edit / Skip)
-    ↓
-  If: Approved?
-    YES → Google Sheets: Update Row (Status = Sent, Count+1, Date)
-    NO  → Skip (No Operation)
+Node 1: Manual Trigger
+
+Node 2: Google Sheets — Read Rows (Recruiter List)
+  Sheet: SPARK Outreach
+  Filter: Status = Pending
+  WHY: Only process recruiters not yet contacted
+
+Node 3: Filter — Valid email present
+  Condition: {{ $json.Email }} is not empty
+
+Node 4: Code — Build SPARK personalised message
 ```
 
-### SPARK Message Builder Code
 ```javascript
+// SPARK methodology: Situation, Problem, Action, Result, Knowledge
 const recruiter = $json;
-// SPARK: Specific, Professional, Appreciative, Relevant, Kind
-const message =
-  `Hi ${recruiter.firstName}, ` +
-  `I noticed your work recruiting for ${recruiter.specialisation} roles at ${recruiter.agency}. ` +
-  `As a Senior IT Program Manager with ${recruiter.targetYears || '15'}+ years in ITAM/ITSM and ServiceNow across India and UAE, ` +
-  `I would love to connect and explore any relevant opportunities.`;
 
-// Enforce 300-char LinkedIn limit
-const trimmed = message.length > 300 ? message.substring(0, 297) + '...' : message;
-return [{ json: { ...recruiter, sparkMessage: trimmed, charCount: trimmed.length } }];
+const message = [
+  `Hi ${recruiter['First Name']},`,
+  '',
+  `I came across your profile while exploring ${recruiter.Agency} and noticed your focus on ${recruiter.Specialisation}.`,
+  '',
+  `I'm a Senior IT Program Manager with 15+ years in ITAM/ITSM, ServiceNow, and large-scale IT transformations. ` +
+  `I hold PRINCE2 Practitioner, ITIL v4 MP, and multiple certifications, and I'm currently open to Senior/Head of IT roles in the UAE/GCC market (AED 24–28K range).`,
+  '',
+  `Would love to connect and explore if there are any relevant mandates. My profile: linkedin.com/in/shrinivas-r`,
+  '',
+  `Best regards,`,
+  `Shrinivas Ramaprasad`
+].join('\n');
+
+return [{
+  json: {
+    ...recruiter,
+    draftMessage: message,
+    charCount: message.length
+  }
+}];
+```
+
+```
+Node 5: Gmail — Send Outreach Email
+  To: {{ $json.Email }}
+  Subject: Senior IT Program Manager — Open to UAE Opportunities
+  Message: {{ $json.draftMessage }}
+  WHY: Personalised outreach at scale
+
+Node 6: Google Sheets — Update Row
+  Match: Email column
+  Status: Contacted
+  Contacted At: {{ $now.toFormat('dd/MM/yyyy') }}
+  Draft Sent: {{ $json.draftMessage.substring(0, 100) }}...
+
+Node 7: Wait — 2 seconds
+  WHY: Avoid Gmail rate limiting between sends
+
+Node 8: Telegram (after loop done)
+  Text: ✅ Outreach batch complete
+  Sent to {{ $items.length }} recruiters
+```
+
+---
+
+## How to Import These Workflows
+
+```
+1. Download the JSON file from workflows/json/
+2. In n8n: top-right menu (☰) → Import from File
+3. Select the downloaded JSON file → Import
+4. Review all nodes — update credentials
+5. Test with manual trigger first
+6. Activate when ready
+
+OR paste JSON directly:
+1. n8n → ☰ → Import from URL
+2. Paste raw GitHub URL of the JSON file
 ```
