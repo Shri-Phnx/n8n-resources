@@ -1,12 +1,12 @@
 # n8n Credentials Guide — Part 1: API Keys & OAuth2
 
-> Author: Shrinivas Ramaprasad | May 2026
+> Author: Shrinivas Ramaprasad | Updated: May 2026
 
 ---
 
 ## How Credentials Work
 
-Credentials are encrypted with `N8N_ENCRYPTION_KEY`. Decrypted only in memory during execution.
+Credentials are encrypted authentication records stored in n8n. Encrypted with `N8N_ENCRYPTION_KEY`. Decrypted only in memory during execution. Never visible in logs.
 
 **Access:** Settings → Credentials → + Add Credential
 
@@ -61,6 +61,16 @@ Used by: OpenAI, Anthropic, Groq, NVIDIA NIM, Hugging Face.
 2. n8n: HTTP Request node → Header Auth credential
    Header Name: Authorization
    Header Value: Bearer nvapi-your-key
+```
+
+### Hugging Face
+
+```
+1. huggingface.co → Settings → Access Tokens → New Token
+   Name: n8n-automation | Role: Read
+   Token starts with: hf_
+2. n8n: Credentials → + Add → HuggingFace
+   API Key: hf_your-token → Save
 ```
 
 **✅ Best practices:**
@@ -162,7 +172,8 @@ Step 2 — Domain-Wide Delegation:
    Scopes:
      https://mail.google.com/,
      https://www.googleapis.com/auth/spreadsheets,
-     https://www.googleapis.com/auth/drive
+     https://www.googleapis.com/auth/drive,
+     https://www.googleapis.com/auth/calendar
 
 Step 3 — Configure in n8n:
   Settings → Credentials → + Add → Google Service Account
