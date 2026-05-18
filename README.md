@@ -22,20 +22,24 @@
 - [06 · Database (SQLite vs PostgreSQL)](#06--database)
 - [07 · Hosting Challenges & Fixes](#07--hosting-challenges)
 - [08 · Connect n8n with Claude](#08--connect-n8n-with-claude)
+- [09 · Environment Variables Reference](#09--environment-variables)
+- [10 · Backup, Recovery & Updates](#10--backup-recovery--updates)
 
 ### 🔑 Credentials
-- [API Keys (OpenAI, Anthropic, Groq, NVIDIA)](#api-keys)
+- [API Keys (OpenAI, Anthropic, Groq, NVIDIA, HuggingFace)](#api-keys)
 - [Google OAuth2 & Service Account](#google-oauth2)
 - [Telegram, Slack, GitHub, SMTP](#telegram-slack-github-smtp)
-- [MySQL & PostgreSQL](#mysql--postgresql)
+- [MySQL, PostgreSQL & HubSpot](#mysql-postgresql--hubspot)
 
 ### ⚙️ Nodes
-- [Node Categories](#node-categories)
+- [Node Overview & Master Index](#node-overview--master-index)
 - [Trigger Nodes — All Types, Step-by-Step](#trigger-nodes)
 - [Webhook — Every Parameter](#webhook)
-- [Core Nodes — Every Field with Samples](#core-nodes)
+- [Core Action Nodes — HTTP, Code, If, Switch, Merge, Loop, Wait](#core-action-nodes)
+- [Node Fields Guide — Every Field with Samples](#node-fields-guide)
 - [AI Nodes — Root + Sub-nodes](#ai-nodes)
 - [Community & Custom Nodes](#community--custom-nodes)
+- [Open-Source Model Rate Limits](#open-source-model-rate-limits)
 - [Keyboard Shortcuts](#keyboard-shortcuts)
 
 ### 🔗 Integrations
@@ -134,7 +138,7 @@ WEBHOOK_URL=https://your-domain.com
 
 ### 02 · Docker
 
-**File:** [`hosting/03-docker-ngrok-guide.md`](./hosting/03-docker-ngrok-guide.md)
+**File:** [`hosting/02-host-n8n-docker.md`](./hosting/02-host-n8n-docker.md)
 
 Minimum `docker-compose.yml`:
 ```yaml
@@ -204,9 +208,9 @@ Full setup: Telegram (polling + webhook), Slack (Event API), Discord (bot + webh
 
 ### 07 · Hosting Challenges
 
-**File:** [`hosting/03-hosting-challenges.md`](./hosting/03-hosting-challenges.md)
+**File:** [`hosting/07-hosting-challenges.md`](./hosting/07-hosting-challenges.md)
 
-Covers: Ollama from Docker, credential loss on move, wrong webhook URL, timezone issues, SSL errors.
+Covers: laptop sleep issues, Docker localhost confusion, credential loss on move, wrong webhook URL, VPS disk space, OAuth redirect problems.
 
 ### 08 · Connect n8n with Claude
 
@@ -214,13 +218,25 @@ Covers: Ollama from Docker, credential loss on move, wrong webhook URL, timezone
 
 Three methods: Claude API as LLM in AI Agent, n8n as MCP server for Claude Desktop, simple webhook.
 
+### 09 · Environment Variables Reference
+
+**File:** [`hosting/08-environment-variables.md`](./hosting/08-environment-variables.md)
+
+Every n8n environment variable explained: authentication, network/URL, encryption key, database, timezone, execution storage, email SMTP. Includes a complete `.env` template.
+
+### 10 · Backup, Recovery & Updates
+
+**File:** [`hosting/09-backup-recovery-updates.md`](./hosting/09-backup-recovery-updates.md)
+
+What to back up, when, and how. Docker volume and PostgreSQL backup commands. Restore procedures. Safe update steps. Automated daily backup cron setup.
+
 ---
 
 ## Credentials
 
 **Files:**
-- [`credentials/01-credentials-part1.md`](./credentials/01-credentials-part1.md) — API keys + Google OAuth2 + Service Account
-- [`credentials/02-credentials-part2.md`](./credentials/02-credentials-part2.md) — Telegram, Slack, GitHub, SMTP, MySQL, PostgreSQL
+- [`credentials/01-credentials-guide.md`](./credentials/01-credentials-guide.md) — API keys (OpenAI, Anthropic, Groq, NVIDIA, HuggingFace), Google OAuth2, Google Service Account
+- [`credentials/02-credentials-guide.md`](./credentials/02-credentials-guide.md) — Telegram, Slack, GitHub PAT, SMTP, MySQL, PostgreSQL, HubSpot
 
 ### API Keys
 
@@ -230,6 +246,7 @@ Three methods: Claude API as LLM in AI Agent, n8n as MCP server for Claude Deskt
 | Anthropic | `sk-ant-api03-...` | console.anthropic.com → API Keys |
 | Groq | `gsk_...` | console.groq.com → API Keys |
 | NVIDIA NIM | `nvapi-...` | build.nvidia.com → API Keys |
+| HuggingFace | `hf_...` | huggingface.co → Settings → Access Tokens |
 
 ### Google OAuth2
 
@@ -244,10 +261,11 @@ Option B: Cloud Console (Workspace). Redirect URI must be exact:
 - **GitHub:** Fine-grained PAT → select repos → Contents: Read+Write
 - **Gmail SMTP:** myaccount.google.com → App passwords → 16-char password
 
-### MySQL & PostgreSQL
+### MySQL, PostgreSQL & HubSpot
 
 - MySQL: `Host | Database | User | Password | Port 3306 | SSL`
 - PostgreSQL: `Host | Database | User | Password | Port 5432 | SSL | Schema: public`
+- HubSpot: Private App Token (`pat-na1-...`)
 
 > **Critical:** `N8N_ENCRYPTION_KEY` must never change after first run.
 
@@ -255,19 +273,21 @@ Option B: Cloud Console (Workspace). Redirect URI must be exact:
 
 ## Nodes
 
-### Node Categories
+### Node Overview & Master Index
 
-**File:** [`nodes/00-node-categories.md`](./nodes/00-node-categories.md)
+**File:** [`nodes/00-nodes-overview.md`](./nodes/00-nodes-overview.md)
 
-| Category | Purpose | Starts workflow? |
-|---|---|---|
-| Trigger | Start on event | ✅ Yes |
-| Core / Regular | Transform, route, filter | ❌ No |
-| Code | Custom JS or Python | ❌ No |
-| Webhook | HTTP receive / respond | Trigger can |
-| HTTP | Outbound API calls | ❌ No |
-| AI | LLM pipelines | ❌ No |
-| App / Integration | External service actions | App triggers can |
+Master index of all 819 verified nodes (67 core, 270 actions, 90 triggers, 21 AI root, 63 AI sub-nodes, 308 credentials). Includes complete tables for every trigger, core, AI, and app node.
+
+| Category | Role | Starts Workflow? | Reference File |
+|---|---|---|---|
+| Trigger Nodes | Start workflow on event | ✅ Yes | `01-trigger-nodes-complete.md` |
+| Core / Regular Nodes | Transform, route, combine | ❌ No | `07-core-action-nodes.md` |
+| Code Nodes | Custom JS or Python | ❌ No | `07-core-action-nodes.md` |
+| Webhook Nodes | HTTP receive / respond | Trigger can | `02-webhook-deep-dive.md` |
+| HTTP Nodes | Outbound API calls | ❌ No | `07-core-action-nodes.md` |
+| AI Nodes | LLM pipelines, agents | ❌ No | `03-ai-nodes-and-open-source-models.md` |
+| App / Integration Nodes | External service actions | App triggers can | `integrations/` folder |
 
 ### Trigger Nodes
 
@@ -283,7 +303,13 @@ Every parameter: Method, Path, Auth (None/Basic/Header/JWT), Response Mode, Raw 
 Testing: n8n test mode, curl, Postman (step-by-step), ngrok inspector, webhook.site.
 Service configs: Stripe, GitHub, Slack, HubSpot, Shopify, Postman.
 
-### Core Nodes
+### Core Action Nodes
+
+**File:** [`nodes/07-core-action-nodes.md`](./nodes/07-core-action-nodes.md)
+
+Detailed parameters and examples for: HTTP Request, Code (JS+Python), Edit Fields, Filter, If, Switch, Merge, Loop Over Items, Wait, Date & Time, Send Email, Execute Sub-workflow, Stop And Error, SSH, Crypto, Guardrails.
+
+### Node Fields Guide
 
 **File:** [`nodes/05-node-fields-guide.md`](./nodes/05-node-fields-guide.md)
 
@@ -299,6 +325,12 @@ Sub-nodes: 28 Chat Models, Memory, Tools, Vector Stores, Embeddings, Splitters.
 ### Community & Custom Nodes
 
 **File:** [`nodes/04-community-and-custom-nodes.md`](./nodes/04-community-and-custom-nodes.md)
+
+### Open-Source Model Rate Limits
+
+**File:** [`nodes/06-open-source-model-limits.md`](./nodes/06-open-source-model-limits.md)
+
+Daily/hourly limits for every free provider, plus Wait node + Retry On Fail strategies.
 
 ### Keyboard Shortcuts
 
@@ -400,8 +432,6 @@ Official templates: https://n8n.io/workflows/1534 · https://n8n.io/workflows/25
 ### Pure Automation Workflows (No AI Required)
 
 **File:** [`workflows/03-pure-automation-workflows.md`](./workflows/03-pure-automation-workflows.md)
-
-Based on Shrinivas's actual use cases — ITAM/ITSM, ServiceNow, CareerForge, job search, reporting. Every workflow uses only triggers, core nodes, and app integrations. No AI agent required.
 
 | Workflow | Trigger | Key Nodes |
 |---|---|---|
