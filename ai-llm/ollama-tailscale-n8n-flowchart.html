@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; font-family: 'Segoe UI', Arial, sans-serif; color: #e0e0e0; padding: 24px; }
+  h1 { text-align: center; color: #4fc3f7; font-size: 20px; margin-bottom: 4px; letter-spacing: 1px; }
+  .subtitle { text-align: center; color: #777; font-size: 11px; margin-bottom: 28px; }
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    margin-bottom: 12px; padding: 4px 14px; border-radius: 4px; display: inline-block;
+  }
+  .sl-blue { background: #1a3a5c; color: #4fc3f7; }
+  .sl-orange { background: #3d2a1a; color: #ffa726; }
+  .sl-green { background: #1a3d2b; color: #66bb6a; }
+  .section { margin-bottom: 32px; }
+  hr.divider { border: none; border-top: 1px solid #1e2533; margin: 8px 0 20px; }
+  .arch-grid { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0; }
+  .arch-node { background: #1e2533; border: 1.5px solid #2a3a50; border-radius: 10px; padding: 14px 16px; min-width: 130px; text-align: center; }
+  .arch-node .icon { font-size: 24px; margin-bottom: 5px; }
+  .arch-node .title { font-size: 12px; font-weight: 700; color: #4fc3f7; margin-bottom: 4px; }
+  .arch-node .detail { font-size: 10px; color: #aaa; line-height: 1.6; }
+  .arch-node .badge { font-size: 9px; background: #0d47a1; color: #90caf9; border-radius: 3px; padding: 1px 6px; margin-top: 5px; display: inline-block; }
+  .arch-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 8px; }
+  .arch-arrow .line { width: 36px; height: 2px; background: linear-gradient(90deg,#2979ff,#00bcd4); }
+  .arch-arrow .arrowhead { font-size: 13px; color: #00bcd4; margin-top: -2px; }
+  .arch-arrow .lbl { font-size: 9px; color: #00bcd4; white-space: nowrap; }
+  .steps-cols { display: flex; gap: 14px; }
+  .steps-col { flex: 1; }
+  .col-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #ffa726; border-bottom: 1px solid #3a2a1a; padding-bottom: 5px; margin-bottom: 10px; }
+  .step { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; background: #1a1f2e; border-left: 3px solid #1565c0; border-radius: 0 6px 6px 0; padding: 8px 10px; }
+  .step.ok { border-left-color: #2e7d32; }
+  .step-num { background: #1565c0; color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .step.ok .step-num { background: #2e7d32; }
+  .step-body { font-size: 10.5px; color: #ccc; line-height: 1.5; }
+  .cmd { font-family: 'Courier New', monospace; font-size: 9.5px; color: #80cbc4; background: #0d1117; border-radius: 3px; padding: 2px 5px; margin-top: 3px; display: block; }
+  .warn { font-size: 9px; color: #ffa726; margin-top: 3px; display: block; }
+  .ok-txt { font-size: 9px; color: #a5d6a7; margin-top: 3px; display: block; }
+  .down-arr { text-align: center; color: #444; font-size: 14px; margin: 3px 0; }
+  .diag { display: flex; flex-direction: column; align-items: center; }
+  .dbox { background: #1a1f2e; border: 1.5px solid #283593; border-radius: 8px; padding: 9px 14px; font-size: 10.5px; color: #e0e0e0; text-align: center; min-width: 240px; max-width: 300px; line-height: 1.4; }
+  .dbox .cmd2 { font-family: 'Courier New'; font-size: 9px; color: #80cbc4; display: block; margin-top: 3px; }
+  .vline { width: 2px; height: 14px; background: #2a2a2a; margin: 0 auto; }
+  .branch { display: flex; align-items: flex-start; gap: 20px; justify-content: center; }
+  .branch-side { display: flex; flex-direction: column; align-items: center; }
+  .lbl-y { background: #1b5e20; color: #a5d6a7; font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 3px; }
+  .lbl-n { background: #b71c1c; color: #ffcdd2; font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 3px; }
+  .fix { background: #2a1a1a; border: 1.5px solid #c62828; border-radius: 8px; padding: 8px 10px; font-size: 10px; color: #ef9a9a; text-align: center; min-width: 170px; max-width: 210px; line-height: 1.4; }
+  .fix .fixcmd { font-family: 'Courier New'; font-size: 9px; color: #f48fb1; display: block; margin-top: 3px; }
+  .ok-node { background: #1a2e1a; border: 1.5px solid #2e7d32; border-radius: 8px; padding: 6px 14px; font-size: 10px; color: #a5d6a7; text-align: center; min-width: 110px; }
+  .final { background: linear-gradient(135deg,#1a3a5c,#0d2137); border: 2px solid #4fc3f7; border-radius: 10px; padding: 12px 28px; text-align: center; margin-top: 10px; }
+  .final-t { font-size: 13px; font-weight: 700; color: #4fc3f7; }
+  .final-s { font-size: 10px; color: #aaa; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<h1>Ollama + Tailscale + n8n: Complete Reference Flowchart</h1>
+<div class="subtitle">Architecture &nbsp;&middot;&nbsp; Setup Steps &nbsp;&middot;&nbsp; Diagnostic Flow &nbsp;|&nbsp; Shrinivas Ramaprasad &nbsp;&middot;&nbsp; 23-May-2026</div>
+
+<div class="section">
+  <span class="section-label sl-blue">① Architecture Overview</span>
+  <div class="arch-grid">
+    <div class="arch-node"><div class="icon">🖥️</div><div class="title">n8n</div><div class="detail">Hostinger VPS<br>srv1642799<br><span style="color:#4fc3f7">100.110.9.89</span></div><div class="badge">Workflow Engine</div></div>
+    <div class="arch-arrow"><div class="lbl">Tailscale</div><div class="line"></div><div class="arrowhead">▶</div><div class="lbl">Private Tunnel</div></div>
+    <div class="arch-node"><div class="icon">🔒</div><div class="title">Tailscale</div><div class="detail">WireGuard VPN<br>Encrypted mesh<br>No public ports</div><div class="badge">Security Layer</div></div>
+    <div class="arch-arrow"><div class="lbl">Port</div><div class="line"></div><div class="arrowhead">▶</div><div class="lbl">11434</div></div>
+    <div class="arch-node"><div class="icon">💻</div><div class="title">Ollama</div><div class="detail">Windows Laptop<br><span style="color:#4fc3f7">100.94.10.77</span><br>0.0.0.0:11434</div><div class="badge">LLM Server</div></div>
+    <div class="arch-arrow"><div class="lbl">Serves</div><div class="line"></div><div class="arrowhead">▶</div><div class="lbl">Models</div></div>
+    <div class="arch-node"><div class="icon">🤖</div><div class="title">Local Models</div><div class="detail">mistral 7.2B<br>gemma4 8.0B<br>phi4-mini 3.8B<br>qwen3 4.0B</div><div class="badge">Zero API Cost</div></div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+  <span class="section-label sl-orange">② Setup Steps</span>
+  <div class="steps-cols">
+    <div class="steps-col">
+      <div class="col-title">🔒 Tailscale</div>
+      <div class="step"><div class="step-num">1</div><div class="step-body">Install Tailscale on Windows laptop. Sign in with Google account at tailscale.com/download.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">2</div><div class="step-body">Install on Hostinger VPS:<span class="cmd">curl -fsSL https://tailscale.com/install.sh | sh</span><span class="cmd">sudo tailscale up</span></div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">3</div><div class="step-body">Sign in with the SAME Google account when the login URL appears on VPS.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step ok"><div class="step-num">4</div><div class="step-body">Verify both devices visible:<span class="cmd">tailscale status</span><span class="ok-txt">✅ Must see 100.94.10.77 AND 100.110.9.89</span></div></div>
+    </div>
+    <div class="steps-col">
+      <div class="col-title">💻 Ollama (Windows)</div>
+      <div class="step"><div class="step-num">1</div><div class="step-body">Download and install Ollama from ollama.com. Binds to 127.0.0.1 by default.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">2</div><div class="step-body">Set binding permanently (Admin CMD):<span class="cmd">setx OLLAMA_HOST "0.0.0.0" /M</span><span class="warn">⚠ setx affects future sessions only. Restart Ollama after.</span></div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">3</div><div class="step-body">Add Windows Firewall inbound rule via wf.msc: TCP port 11434, all 3 profiles (Domain, Private, Public).</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">4</div><div class="step-body">Pull models:<span class="cmd">ollama pull mistral</span><span class="cmd">ollama pull phi4-mini</span><span class="cmd">ollama pull qwen3:4b</span><span class="cmd">ollama pull gemma4:e4b</span></div></div>
+      <div class="down-arr">↓</div>
+      <div class="step ok"><div class="step-num">5</div><div class="step-body">Verify binding:<span class="cmd">netstat -ano | findstr 11434</span><span class="ok-txt">✅ Must show 0.0.0.0:11434 not 127.0.0.1</span></div></div>
+    </div>
+    <div class="steps-col">
+      <div class="col-title">🖥️ n8n Credential</div>
+      <div class="step"><div class="step-num">1</div><div class="step-body">Open n8n on Hostinger VPS. Go to Settings → Credentials → New Credential.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">2</div><div class="step-body">Search for and select Ollama as the credential type.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">3</div><div class="step-body">Set Base URL:<span class="cmd">http://100.94.10.77:11434</span>Leave API Key blank.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step"><div class="step-num">4</div><div class="step-body">Name the credential:<span class="cmd">Ollama Local (Tailscale)</span>Save it.</div></div>
+      <div class="down-arr">↓</div>
+      <div class="step ok"><div class="step-num">5</div><div class="step-body">n8n auto-tests the connection.<span class="ok-txt">✅ Expect: Connection tested successfully</span></div></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+  <span class="section-label sl-green">③ Diagnostic Flow (When Something Breaks)</span>
+  <div class="diag">
+    <div class="dbox"><b>CHECK 1 — Is Ollama binding correctly?</b><span class="cmd2">netstat -ano | findstr 11434</span></div>
+    <div class="vline"></div>
+    <div class="branch">
+      <div class="branch-side"><span class="lbl-n">NO: 127.0.0.1:11434</span><div class="vline"></div><div class="fix">Kill Ollama, force correct binding<span class="fixcmd">taskkill /IM ollama.exe /F</span><span class="fixcmd">set OLLAMA_HOST=0.0.0.0</span><span class="fixcmd">ollama serve</span></div></div>
+      <div class="branch-side"><span class="lbl-y">YES: 0.0.0.0:11434</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
+    </div>
+    <div class="vline" style="height:18px;"></div>
+    <div class="dbox"><b>CHECK 2 — Local Tailscale-IP curl works?</b><span class="cmd2">curl http://100.94.10.77:11434/api/tags</span><span style="font-size:9px;color:#777;">(on laptop, using Tailscale IP — not 127.0.0.1)</span></div>
+    <div class="vline"></div>
+    <div class="branch">
+      <div class="branch-side"><span class="lbl-n">FAIL</span><div class="vline"></div><div class="fix">Firewall blocking traffic<span class="fixcmd">wf.msc → New Inbound Rule</span><span class="fixcmd">TCP 11434, all 3 profiles</span><span style="font-size:9px;color:#aaa;">Restart Ollama after adding rule.</span></div></div>
+      <div class="branch-side"><span class="lbl-y">JSON models returned ✓</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
+    </div>
+    <div class="vline" style="height:18px;"></div>
+    <div class="dbox"><b>CHECK 3 — Tailscale ping from VPS?</b><span class="cmd2">tailscale ping --until-direct=false 100.94.10.77</span></div>
+    <div class="vline"></div>
+    <div class="branch">
+      <div class="branch-side"><span class="lbl-n">TIMEOUT</span><div class="vline"></div><div class="fix">Tailscale zombie state on laptop<span class="fixcmd">Restart-Service Tailscale</span><span style="font-size:9px;color:#aaa;">(Admin PowerShell on laptop)</span><span class="fixcmd">or: tailscale logout</span><span class="fixcmd">tailscale up</span></div></div>
+      <div class="branch-side"><span class="lbl-y">Pong received ✓</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
+    </div>
+    <div class="vline" style="height:18px;"></div>
+    <div class="dbox"><b>CHECK 4 — VPS curl to Ollama works?</b><span class="cmd2">curl http://100.94.10.77:11434/api/tags</span><span style="font-size:9px;color:#777;">(run on Hostinger VPS)</span></div>
+    <div class="vline"></div>
+    <div class="branch">
+      <div class="branch-side"><span class="lbl-n">FAIL</span><div class="vline"></div><div class="fix">VPS tailscaled issue<span class="fixcmd">sudo systemctl restart tailscaled</span><span class="fixcmd">tailscale up</span><span class="fixcmd">tailscale status</span></div></div>
+      <div class="branch-side"><span class="lbl-y">JSON models returned ✓</span><div class="vline"></div><div class="ok-node">↓ Final check</div></div>
+    </div>
+    <div class="vline" style="height:18px;"></div>
+    <div class="dbox"><b>CHECK 5 — Re-test n8n credential</b><span class="cmd2">n8n → Settings → Credentials → Ollama Local (Tailscale) → Test</span></div>
+    <div class="vline" style="height:14px;"></div>
+    <div class="final"><div class="final-t">✅ Architecture Fully Operational</div><div class="final-s">n8n can now use local Ollama models via Tailscale private tunnel — zero API cost</div></div>
+  </div>
+</div>
+
+</body>
+</html>

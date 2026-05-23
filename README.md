@@ -52,6 +52,7 @@
 - [Open-Source APIs (Groq, OpenRouter, NVIDIA, HuggingFace)](#open-source-apis)
 - [Local LLM — Ollama Setup](#local-llm-setup)
 - [CPU-Only LLMs — No GPU Required](#cpu-only-llms)
+- [Ollama + Tailscale + n8n Flowchart (VPS Architecture)](#connect-ollama-to-n8n-via-tailscale-vps-architecture)
 - [Model Rate Limits — All Free Providers](#model-rate-limits)
 
 ### 📋 Workflows & Use Cases
@@ -410,6 +411,8 @@ Ollama (primary), LM Studio, GPT4All. Four Docker scenarios covered.
 | Llama3.1:8B Q4 | 10 GB | 5–10 t/s | Good quality |
 
 Includes: multi-provider fallback strategy, context-limit handling (Map Reduce, text trimming).
+
+**Flowchart:** [`ai-llm/ollama-tailscale-n8n-flowchart.html`](./ai-llm/ollama-tailscale-n8n-flowchart.html) — Architecture, setup steps and diagnostic flow for connecting n8n (VPS) to Ollama (laptop) via Tailscale.
 
 ### Model Rate Limits
 
