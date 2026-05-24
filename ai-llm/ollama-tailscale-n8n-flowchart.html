@@ -31,11 +31,14 @@
   .col-title { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #ffa726; border-bottom: 1px solid #3a2a1a; padding-bottom: 5px; margin-bottom: 10px; }
   .step { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; background: #1a1f2e; border-left: 3px solid #1565c0; border-radius: 0 6px 6px 0; padding: 8px 10px; }
   .step.ok { border-left-color: #2e7d32; }
+  .step.warn-step { border-left-color: #e65100; }
   .step-num { background: #1565c0; color: #fff; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
   .step.ok .step-num { background: #2e7d32; }
+  .step.warn-step .step-num { background: #e65100; }
   .step-body { font-size: 10.5px; color: #ccc; line-height: 1.5; }
   .cmd { font-family: 'Courier New', monospace; font-size: 9.5px; color: #80cbc4; background: #0d1117; border-radius: 3px; padding: 2px 5px; margin-top: 3px; display: block; }
   .warn { font-size: 9px; color: #ffa726; margin-top: 3px; display: block; }
+  .note { font-size: 9px; color: #90caf9; margin-top: 3px; display: block; }
   .ok-txt { font-size: 9px; color: #a5d6a7; margin-top: 3px; display: block; }
   .down-arr { text-align: center; color: #444; font-size: 14px; margin: 3px 0; }
   .diag { display: flex; flex-direction: column; align-items: center; }
@@ -52,12 +55,14 @@
   .final { background: linear-gradient(135deg,#1a3a5c,#0d2137); border: 2px solid #4fc3f7; border-radius: 10px; padding: 12px 28px; text-align: center; margin-top: 10px; }
   .final-t { font-size: 13px; font-weight: 700; color: #4fc3f7; }
   .final-s { font-size: 10px; color: #aaa; margin-top: 4px; }
+  .changelog { background: #12181f; border: 1px solid #1e2533; border-radius: 8px; padding: 10px 16px; margin-top: 28px; font-size: 10px; color: #777; }
+  .changelog b { color: #4fc3f7; }
 </style>
 </head>
 <body>
 
 <h1>Ollama + Tailscale + n8n: Complete Reference Flowchart</h1>
-<div class="subtitle">Architecture &nbsp;&middot;&nbsp; Setup Steps &nbsp;&middot;&nbsp; Diagnostic Flow &nbsp;|&nbsp; Shrinivas Ramaprasad &nbsp;&middot;&nbsp; 23-May-2026</div>
+<div class="subtitle">Architecture &nbsp;&middot;&nbsp; Setup Steps &nbsp;&middot;&nbsp; Diagnostic Flow &nbsp;|&nbsp; Shrinivas Ramaprasad &nbsp;&middot;&nbsp; 24-May-2026</div>
 
 <div class="section">
   <span class="section-label sl-blue">① Architecture Overview</span>
@@ -81,7 +86,7 @@
       <div class="col-title">🔒 Tailscale</div>
       <div class="step"><div class="step-num">1</div><div class="step-body">Install Tailscale on Windows laptop. Sign in with Google account at tailscale.com/download.</div></div>
       <div class="down-arr">↓</div>
-      <div class="step"><div class="step-num">2</div><div class="step-body">Install on Hostinger VPS:<span class="cmd">curl -fsSL https://tailscale.com/install.sh | sh</span><span class="cmd">sudo tailscale up</span></div></div>
+      <div class="step warn-step"><div class="step-num">2</div><div class="step-body">Install on Hostinger VPS:<span class="cmd">curl -fsSL https://tailscale.com/install.sh | sh</span>Then bring up with DNS override disabled:<span class="cmd">sudo tailscale up --accept-dns=false</span><span class="warn">⚠ --accept-dns=false is critical on VPS. Without it, Tailscale overrides system DNS and breaks external hostname resolution (e.g. HuggingFace API calls will fail).</span></div></div>
       <div class="down-arr">↓</div>
       <div class="step"><div class="step-num">3</div><div class="step-body">Sign in with the SAME Google account when the login URL appears on VPS.</div></div>
       <div class="down-arr">↓</div>
@@ -119,38 +124,62 @@
 <div class="section">
   <span class="section-label sl-green">③ Diagnostic Flow (When Something Breaks)</span>
   <div class="diag">
+
     <div class="dbox"><b>CHECK 1 — Is Ollama binding correctly?</b><span class="cmd2">netstat -ano | findstr 11434</span></div>
     <div class="vline"></div>
     <div class="branch">
       <div class="branch-side"><span class="lbl-n">NO: 127.0.0.1:11434</span><div class="vline"></div><div class="fix">Kill Ollama, force correct binding<span class="fixcmd">taskkill /IM ollama.exe /F</span><span class="fixcmd">set OLLAMA_HOST=0.0.0.0</span><span class="fixcmd">ollama serve</span></div></div>
       <div class="branch-side"><span class="lbl-y">YES: 0.0.0.0:11434</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
     </div>
+
     <div class="vline" style="height:18px;"></div>
-    <div class="dbox"><b>CHECK 2 — Local Tailscale-IP curl works?</b><span class="cmd2">curl http://100.94.10.77:11434/api/tags</span><span style="font-size:9px;color:#777;">(on laptop, using Tailscale IP — not 127.0.0.1)</span></div>
+
+    <div class="dbox"><b>CHECK 2 — VPS DNS working?</b><span class="cmd2">nslookup api.huggingface.co</span><span style="font-size:9px;color:#777;">(run on Hostinger VPS — confirms external DNS is intact)</span></div>
+    <div class="vline"></div>
+    <div class="branch">
+      <div class="branch-side"><span class="lbl-n">No answer / timeout</span><div class="vline"></div><div class="fix">Tailscale overrode VPS DNS<span class="fixcmd">tailscale set --accept-dns=false</span><span style="font-size:9px;color:#aaa;">Then fix resolv.conf:</span><span class="fixcmd">echo "nameserver 8.8.8.8" > /etc/resolv.conf</span><span class="fixcmd">echo "nameserver 1.1.1.1" >> /etc/resolv.conf</span><span style="font-size:9px;color:#aaa;">Prevention: always use --accept-dns=false on tailscale up</span></div></div>
+      <div class="branch-side"><span class="lbl-y">IP returned ✓</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
+    </div>
+
+    <div class="vline" style="height:18px;"></div>
+
+    <div class="dbox"><b>CHECK 3 — Local Tailscale-IP curl works?</b><span class="cmd2">curl http://100.94.10.77:11434/api/tags</span><span style="font-size:9px;color:#777;">(on laptop, using Tailscale IP — not 127.0.0.1)</span></div>
     <div class="vline"></div>
     <div class="branch">
       <div class="branch-side"><span class="lbl-n">FAIL</span><div class="vline"></div><div class="fix">Firewall blocking traffic<span class="fixcmd">wf.msc → New Inbound Rule</span><span class="fixcmd">TCP 11434, all 3 profiles</span><span style="font-size:9px;color:#aaa;">Restart Ollama after adding rule.</span></div></div>
       <div class="branch-side"><span class="lbl-y">JSON models returned ✓</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
     </div>
+
     <div class="vline" style="height:18px;"></div>
-    <div class="dbox"><b>CHECK 3 — Tailscale ping from VPS?</b><span class="cmd2">tailscale ping --until-direct=false 100.94.10.77</span></div>
+
+    <div class="dbox"><b>CHECK 4 — Tailscale ping from VPS?</b><span class="cmd2">tailscale ping --until-direct=false 100.94.10.77</span></div>
     <div class="vline"></div>
     <div class="branch">
       <div class="branch-side"><span class="lbl-n">TIMEOUT</span><div class="vline"></div><div class="fix">Tailscale zombie state on laptop<span class="fixcmd">Restart-Service Tailscale</span><span style="font-size:9px;color:#aaa;">(Admin PowerShell on laptop)</span><span class="fixcmd">or: tailscale logout</span><span class="fixcmd">tailscale up</span></div></div>
       <div class="branch-side"><span class="lbl-y">Pong received ✓</span><div class="vline"></div><div class="ok-node">↓ Next check</div></div>
     </div>
+
     <div class="vline" style="height:18px;"></div>
-    <div class="dbox"><b>CHECK 4 — VPS curl to Ollama works?</b><span class="cmd2">curl http://100.94.10.77:11434/api/tags</span><span style="font-size:9px;color:#777;">(run on Hostinger VPS)</span></div>
+
+    <div class="dbox"><b>CHECK 5 — VPS curl to Ollama works?</b><span class="cmd2">curl http://100.94.10.77:11434/api/tags</span><span style="font-size:9px;color:#777;">(run on Hostinger VPS)</span></div>
     <div class="vline"></div>
     <div class="branch">
-      <div class="branch-side"><span class="lbl-n">FAIL</span><div class="vline"></div><div class="fix">VPS tailscaled issue<span class="fixcmd">sudo systemctl restart tailscaled</span><span class="fixcmd">tailscale up</span><span class="fixcmd">tailscale status</span></div></div>
+      <div class="branch-side"><span class="lbl-n">FAIL</span><div class="vline"></div><div class="fix">VPS tailscaled issue<span class="fixcmd">sudo systemctl restart tailscaled</span><span class="fixcmd">tailscale up --accept-dns=false</span><span class="fixcmd">tailscale status</span></div></div>
       <div class="branch-side"><span class="lbl-y">JSON models returned ✓</span><div class="vline"></div><div class="ok-node">↓ Final check</div></div>
     </div>
+
     <div class="vline" style="height:18px;"></div>
-    <div class="dbox"><b>CHECK 5 — Re-test n8n credential</b><span class="cmd2">n8n → Settings → Credentials → Ollama Local (Tailscale) → Test</span></div>
+
+    <div class="dbox"><b>CHECK 6 — Re-test n8n credential</b><span class="cmd2">n8n → Settings → Credentials → Ollama Local (Tailscale) → Test</span></div>
     <div class="vline" style="height:14px;"></div>
     <div class="final"><div class="final-t">✅ Architecture Fully Operational</div><div class="final-s">n8n can now use local Ollama models via Tailscale private tunnel — zero API cost</div></div>
+
   </div>
+</div>
+
+<div class="changelog">
+  <b>Changelog</b><br>
+  24-May-2026 — Added <code>--accept-dns=false</code> flag to Tailscale VPS install step (prevents DNS override breaking external API calls). Added CHECK 2 (VPS DNS diagnostic) with fix commands. Renumbered checks 2→6. Updated tailscale up in CHECK 5 fix to include --accept-dns=false.
 </div>
 
 </body>
